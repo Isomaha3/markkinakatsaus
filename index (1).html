@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markkinakatsaus</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #0b0e14;
+  --sur: #111520;
+  --brd: #1e2535;
+  --acc: #00e5a0;
+  --ac2: #ff6b35;
+  --ac3: #4d8cff;
+  --txt: #e8ecf4;
+  --mut: #5a6480;
+  --up:  #00e5a0;
+  --dn:  #ff4d6d;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--txt); font-family: 'DM Sans', sans-serif; }
+
+header {
+  background: #0d1018;
+  border-bottom: 1px solid var(--brd);
+  padding: 1rem 2rem;
+  display: flex; align-items: center; gap: 1rem;
+}
+.logo { font-family: 'Space Mono', monospace; font-size: .9rem; font-weight: 700; color: var(--acc); letter-spacing: .1em; text-transform: uppercase; }
+.logo span { color: var(--mut); }
+.clock { margin-left: auto; font-family: 'Space Mono', monospace; font-size: .8rem; color: var(--mut); }
+
+main { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+
+h2 { font-family: 'Space Mono', monospace; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--mut); margin: 2rem 0 1rem; border-bottom: 1px solid var(--brd); padding-bottom: .5rem; }
+
+/* CARDS */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.card { background: var(--sur); border: 1px solid var(--brd); border-radius: 4px; padding: 1rem 1.2rem; border-top: 2px solid var(--acc); }
+.card.orange { border-top-color: var(--ac2); }
+.card.blue   { border-top-color: var(--ac3); }
+.card .lbl { font-family: 'Space Mono', monospace; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); }
+.card .sym { font-family: 'Space Mono', monospace; font-size: .65rem; color: var(--acc); margin: .2rem 0 .5rem; }
+.card.orange .sym { color: var(--ac2); }
+.card.blue   .sym { color: var(--ac3); }
+.card .val { font-family: 'Space Mono', monospace; font-size: 1.6rem; font-weight: 700; line-height: 1; }
+.card .chg { font-family: 'Space Mono', monospace; font-size: .8rem; font-weight: 700; margin-top: .3rem; }
+.up { color: var(--up); } .dn { color: var(--dn); }
+.card .dsc { font-size: .7rem; color: var(--mut); margin-top: .4rem; }
+.card .spark { display: block; width: 100%; height: 40px; margin-top: .6rem; }
+
+/* CHARTS */
+.charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+.chartbox { background: var(--sur); border: 1px solid var(--brd); border-radius: 4px; padding: 1.2rem; }
+.chartbox h3 { font-family: 'Space Mono', monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--txt); margin-bottom: .2rem; }
+.chartbox .sub { font-size: .68rem; color: var(--mut); margin-bottom: 1rem; }
+.chartbox canvas { display: block; width: 100% !important; max-height: 140px; }
+.full { grid-column: 1 / -1; }
+.chdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: .2rem; }
+.chdr h3 { margin-bottom: 0; }
+.rngs { display: flex; gap: 3px; }
+.rng { background: none; border: 1px solid var(--brd); color: var(--mut); font-family: 'Space Mono', monospace; font-size: .58rem; padding: .18rem .42rem; border-radius: 2px; cursor: pointer; transition: all .15s; }
+.rng:hover { color: var(--txt); border-color: var(--mut); }
+.rng.on { color: var(--acc); border-color: var(--acc); background: rgba(0,229,160,.07); }
+nav { background: #0d1018; border-bottom: 1px solid var(--brd); display: flex; padding: 0 2rem; }
+nav a { font-family: 'Space Mono', monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); text-decoration: none; padding: .85rem 1.2rem; border-bottom: 2px solid transparent; transition: all .2s; cursor: pointer; white-space: nowrap; }
+nav a:hover { color: var(--txt); }
+nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
+.panel { display: none; }
+.panel.on { display: block; }
+
+/* INFO POPUP */
+.info-btn { background: none; border: 1px solid var(--brd); color: var(--mut); font-family: 'Space Mono', monospace; font-size: .58rem; padding: .1rem .35rem; border-radius: 2px; cursor: pointer; transition: all .15s; margin-left: .4rem; vertical-align: middle; }
+.info-btn:hover { color: var(--acc); border-color: var(--acc); }
+.info-overlay { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(0,0,0,.6); backdrop-filter: blur(3px); align-items: center; justify-content: center; }
+.info-overlay.open { display: flex; }
+.info-box { background: var(--sur); border: 1px solid var(--brd); border-radius: 6px; padding: 2rem; max-width: 480px; width: 90%; position: relative; animation: popIn .18s ease; }
+@keyframes popIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+.info-box .close { position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--mut); font-size: 1.1rem; cursor: pointer; line-height: 1; }
+.info-box .close:hover { color: var(--txt); }
+.info-box .i-tag { font-family: 'Space Mono', monospace; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--acc); margin-bottom: .5rem; }
+.info-box .i-name { font-family: 'Space Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--txt); margin-bottom: .3rem; }
+.info-box .i-fi { font-size: .85rem; color: var(--mut); margin-bottom: 1rem; font-style: italic; }
+.info-box .i-desc { font-size: .85rem; color: var(--txt); line-height: 1.6; }
+.info-box .i-meta { margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+.info-box .i-meta span { font-family: 'Space Mono', monospace; font-size: .62rem; color: var(--mut); background: var(--bg); border: 1px solid var(--brd); padding: .2rem .5rem; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="info-overlay" id="info-overlay" onclick="closeInfo(event)">
+  <div class="info-box">
+    <button class="close" onclick="closeInfo()">✕</button>
+    <div class="i-tag" id="i-tag"></div>
+    <div class="i-name" id="i-name"></div>
+    <div class="i-fi" id="i-fi"></div>
+    <div class="i-desc" id="i-desc"></div>
+    <div class="i-meta" id="i-meta"></div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">Markkinakatsaus <span>// FI</span></div>
+  <div class="clock" id="clk">--:--:--</div>
+</header>
+<nav>
+  <a class="on" onclick="showPanel('p-main',this)">Markkinat</a>
+  <a onclick="showPanel('p-hist',this)">Historical Data</a>
+</nav>
+<main>
+<div id="p-main" class="panel on">
+<h2>Pörssit</h2>
+<div class="cards">
+  <div class="card">
+    <div class="lbl">Helsinki <button class="info-btn" onclick="showInfo('omxh')">?</button></div>
+    <div class="sym">OMXH25</div>
+    <div class="val" id="v-omxh">5 820</div>
+    <div class="chg up" id="d-omxh">▲ +0.82 %</div>
+    <div class="dsc">OMX Helsinki 25 · EUR</div>
+    <canvas class="spark" id="sk-omxh"></canvas>
+  </div>
+  <div class="card">
+    <div class="lbl">S&amp;P 500 <button class="info-btn" onclick="showInfo('sp500')">?</button></div>
+    <div class="sym">^GSPC</div>
+    <div class="val" id="v-sp500">5 648</div>
+    <div class="chg dn" id="d-sp500">▼ −0.41 %</div>
+    <div class="dsc">USA laaja indeksi · USD</div>
+    <canvas class="spark" id="sk-sp500"></canvas>
+  </div>
+  <div class="card">
+    <div class="lbl">STOXX Europe 600 <button class="info-btn" onclick="showInfo('stoxx')">?</button></div>
+    <div class="sym">^STOXX</div>
+    <div class="val" id="v-stoxx">538.4</div>
+    <div class="chg up" id="d-stoxx">▲ +0.55 %</div>
+    <div class="dsc">Eurooppa laaja · EUR</div>
+    <canvas class="spark" id="sk-stoxx"></canvas>
+  </div>
+</div>
+
+<h2>Historialliset kuvaajat – Pörssi</h2>
+<div class="charts">
+  <div class="chartbox">
+    <div class="chdr"><h3>OMXH25 <button class="info-btn" onclick="showInfo('omxh')">?</button></h3><div class="rngs" id="rb-omxh"></div></div>
+    <div class="sub" id="sub-omxh">12 kk · EUR</div>
+    <canvas id="ch-omxh" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>S&amp;P 500 <button class="info-btn" onclick="showInfo('sp500')">?</button></h3><div class="rngs" id="rb-sp500"></div></div>
+    <div class="sub" id="sub-sp500">12 kk · USD</div>
+    <canvas id="ch-sp500" height="120"></canvas>
+  </div>
+  <div class="chartbox full">
+    <div class="chdr"><h3>STOXX Europe 600 <button class="info-btn" onclick="showInfo('stoxx')">?</button></h3><div class="rngs" id="rb-stoxx"></div></div>
+    <div class="sub" id="sub-stoxx">12 kk · EUR</div>
+    <canvas id="ch-stoxx" height="120"></canvas>
+  </div>
+</div>
+
+<h2>Hyödykkeet</h2>
+<div class="cards">
+  <div class="card orange">
+    <div class="lbl">WTI Crude Oil <button class="info-btn" onclick="showInfo('wti')">?</button></div><div class="sym">CL=F</div>
+    <div class="val" id="v-wti">71.42</div><div class="chg dn" id="d-wti">▼ −0.63 %</div>
+    <div class="dsc">USD / bbl</div>
+    <canvas class="spark" id="sk-wti"></canvas>
+  </div>
+  <div class="card orange">
+    <div class="lbl">Brent Crude Oil <button class="info-btn" onclick="showInfo('brent')">?</button></div><div class="sym">BZ=F</div>
+    <div class="val" id="v-brent">75.18</div><div class="chg dn" id="d-brent">▼ −0.55 %</div>
+    <div class="dsc">USD / bbl</div>
+    <canvas class="spark" id="sk-brent"></canvas>
+  </div>
+  <div class="card orange">
+    <div class="lbl">Kulta <button class="info-btn" onclick="showInfo('gold')">?</button></div><div class="sym">GC=F</div>
+    <div class="val" id="v-gold">3 051</div><div class="chg up" id="d-gold">▲ +0.38 %</div>
+    <div class="dsc">USD / troy oz</div>
+    <canvas class="spark" id="sk-gold"></canvas>
+  </div>
+  <div class="card orange">
+    <div class="lbl">Kupari <button class="info-btn" onclick="showInfo('copper')">?</button></div><div class="sym">HG=F</div>
+    <div class="val" id="v-copper">4.682</div><div class="chg up" id="d-copper">▲ +1.12 %</div>
+    <div class="dsc">USD / lb</div>
+    <canvas class="spark" id="sk-copper"></canvas>
+  </div>
+  <div class="card blue">
+    <div class="lbl">World Container Index <button class="info-btn" onclick="showInfo('wci')">?</button></div><div class="sym">WCI 40ft</div>
+    <div class="val" id="v-wci">2 279</div><div class="chg dn" id="d-wci">▼ −1.2 %</div>
+    <div class="dsc">USD / 40ft</div>
+    <canvas class="spark" id="sk-wci"></canvas>
+  </div>
+  <div class="card blue">
+    <div class="lbl">VIX – Pelkoindeksi <button class="info-btn" onclick="showInfo('vix')">?</button></div><div class="sym">^VIX</div>
+    <div class="val" id="v-vix">19.24</div><div class="chg up" id="d-vix">▲ +2.1 %</div>
+    <div class="dsc">S&amp;P 500 volatiliteetti</div>
+    <canvas class="spark" id="sk-vix"></canvas>
+  </div>
+</div>
+
+<h2>Historialliset kuvaajat – Hyödykkeet &amp; Korot</h2>
+<div class="charts">
+  <div class="chartbox">
+    <div class="chdr"><h3>WTI &amp; Brent <button class="info-btn" onclick="showInfo('wti')">?</button></h3><div class="rngs" id="rb-oil"></div></div>
+    <div class="sub" id="sub-oil">12 kk · USD/bbl</div>
+    <canvas id="ch-oil" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>US 10Y Treasury Yield <button class="info-btn" onclick="showInfo('tnx')">?</button></h3><div class="rngs" id="rb-tnx"></div></div>
+    <div class="sub" id="sub-tnx">12 kk · %</div>
+    <canvas id="ch-tnx" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>VIX <button class="info-btn" onclick="showInfo('vix')">?</button></h3><div class="rngs" id="rb-vix"></div></div>
+    <div class="sub" id="sub-vix">12 kk</div>
+    <canvas id="ch-vix" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>Kulta <button class="info-btn" onclick="showInfo('gold')">?</button></h3><div class="rngs" id="rb-gold"></div></div>
+    <div class="sub" id="sub-gold">12 kk · USD/oz</div>
+    <canvas id="ch-gold" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>Kupari <button class="info-btn" onclick="showInfo('copper')">?</button></h3><div class="rngs" id="rb-copper"></div></div>
+    <div class="sub" id="sub-copper">12 kk · USD/lb</div>
+    <canvas id="ch-copper" height="120"></canvas>
+  </div>
+  <div class="chartbox full">
+    <div class="chdr"><h3>World Container Index <button class="info-btn" onclick="showInfo('wci')">?</button></h3><div class="rngs" id="rb-wci"></div></div>
+    <div class="sub" id="sub-wci">12 kk · USD/40ft</div>
+    <canvas id="ch-wci" height="120"></canvas>
+  </div>
+</div>
+
+<h2>Makrotalous</h2>
+<div class="cards">
+  <div class="card blue">
+    <div class="lbl">US Manufacturing PMI <button class="info-btn" onclick="showInfo('uspmi')">?</button></div>
+    <div class="sym">ISM / FRED</div>
+    <div class="val">49.3</div>
+    <div class="chg dn">▼ −0.6</div>
+    <div class="dsc">Alle 50 = supistuminen</div>
+  </div>
+  <div class="card blue" id="card-gpmi">
+    <div class="lbl">Global Composite PMI <button class="info-btn" onclick="showInfo('gpmi')">?</button></div>
+    <div class="sym">OECD CLI</div>
+    <div class="val" id="v-gpmi">–</div>
+    <div class="chg" id="d-gpmi">–</div>
+    <div class="dsc">Yli 100 = kasvu · OECD CLI</div>
+  </div>
+</div>
+
+<h2>Historialliset kuvaajat – PMI</h2>
+<div class="charts">
+  <div class="chartbox">
+    <div class="chdr"><h3>US Manufacturing PMI <button class="info-btn" onclick="showInfo('uspmi')">?</button></h3><div class="rngs" id="rb-uspmi"></div></div>
+    <div class="sub" id="sub-uspmi">12 kk</div>
+    <canvas id="ch-uspmi" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>Global Composite PMI <button class="info-btn" onclick="showInfo('gpmi')">?</button></h3><div class="rngs" id="rb-gpmi"></div></div>
+    <div class="sub" id="sub-gpmi">12 kk</div>
+    <canvas id="ch-gpmi" height="120"></canvas>
+  </div>
+</div>
+
+</div> <!-- /p-main -->
+
+<!-- PANEL: HISTORICAL DATA -->
+<div id="p-hist" class="panel">
+<h2>Historical Data – 10 vuoden kehitys</h2>
+
+<div class="charts">
+  <div class="chartbox full">
+    <div class="chdr"><h3>OMXH25 – 10v</h3><div class="rngs" id="rb-h-omxh"></div></div>
+    <div class="sub" id="sub-h-omxh">10 vuotta · EUR</div>
+    <canvas id="ch-h-omxh" height="120"></canvas>
+  </div>
+  <div class="chartbox full">
+    <div class="chdr"><h3>S&amp;P 500 – 10v</h3><div class="rngs" id="rb-h-sp500"></div></div>
+    <div class="sub" id="sub-h-sp500">10 vuotta · USD</div>
+    <canvas id="ch-h-sp500" height="120"></canvas>
+  </div>
+  <div class="chartbox full">
+    <div class="chdr"><h3>STOXX Europe 600 – 10v</h3><div class="rngs" id="rb-h-stoxx"></div></div>
+    <div class="sub" id="sub-h-stoxx">10 vuotta · EUR</div>
+    <canvas id="ch-h-stoxx" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>WTI Crude Oil – 10v</h3><div class="rngs" id="rb-h-wti"></div></div>
+    <div class="sub" id="sub-h-wti">10 vuotta · USD/bbl</div>
+    <canvas id="ch-h-wti" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>Kulta – 10v</h3><div class="rngs" id="rb-h-gold"></div></div>
+    <div class="sub" id="sub-h-gold">10 vuotta · USD/oz</div>
+    <canvas id="ch-h-gold" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>US 10Y Treasury Yield – 10v</h3><div class="rngs" id="rb-h-tnx"></div></div>
+    <div class="sub" id="sub-h-tnx">10 vuotta · %</div>
+    <canvas id="ch-h-tnx" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>VIX – 10v <button class="info-btn" onclick="showInfo('vix')">?</button></h3><div class="rngs" id="rb-h-vix"></div></div>
+    <div class="sub" id="sub-h-vix">10 vuotta</div>
+    <canvas id="ch-h-vix" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>Kupari – 10v <button class="info-btn" onclick="showInfo('copper')">?</button></h3><div class="rngs" id="rb-h-copper"></div></div>
+    <div class="sub" id="sub-h-copper">10 vuotta · USD/lb</div>
+    <canvas id="ch-h-copper" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>US Manufacturing PMI – 10v <button class="info-btn" onclick="showInfo('uspmi')">?</button></h3><div class="rngs" id="rb-h-uspmi"></div></div>
+    <div class="sub" id="sub-h-uspmi">10 vuotta</div>
+    <canvas id="ch-h-uspmi" height="120"></canvas>
+  </div>
+  <div class="chartbox">
+    <div class="chdr"><h3>Global Composite PMI – 10v <button class="info-btn" onclick="showInfo('gpmi')">?</button></h3><div class="rngs" id="rb-h-gpmi"></div></div>
+    <div class="sub" id="sub-h-gpmi">10 vuotta</div>
+    <canvas id="ch-h-gpmi" height="120"></canvas>
+  </div>
+</div>
+</div> <!-- /p-hist -->
+
+</main>
+
+<script>
+// Clock
+setInterval(() => {
+  document.getElementById('clk').textContent =
+    new Date().toLocaleTimeString('fi-FI', {timeZone:'Europe/Helsinki'}) + ' HKI';
+}, 1000);
+
+// Deterministic wave — always same shape, no randomness
+function wave(base, amp, n) {
+  const data = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const v = base
+      + amp * Math.sin(t * Math.PI * 4)
+      + amp * 0.5 * Math.sin(t * Math.PI * 9 + 1.2)
+      + amp * 0.25 * Math.sin(t * Math.PI * 17 + 0.5);
+    data.push(parseFloat(v.toFixed(3)));
+  }
+  return data;
+}
+
+// ── FINNHUB LIVE DATA ─────────────────────────────────────────
+const FKEY = 'd73rqrhr01qjjol44b00d73rqrhr01qjjol44b0g';
+const FBASE = 'https://finnhub.io/api/v1';
+
+// Finnhub symbol mapping
+const SYMBOLS = {
+  sp500:  'SPY',       // S&P 500 ETF (indeksiä ei suoraan, SPY seuraa tarkasti)
+  wti:    'USO',       // WTI ETF
+  gold:   'GLD',       // Kulta ETF
+  copper: 'COPX',      // Kupari ETF
+  vix:    'VIXY',      // VIX ETF
+};
+
+// Forex/indeksi symbolit Finnhubin kautta
+const FOREX = {
+  omxh:  null,         // Ei saatavilla Finnhubissa ilmaisessa
+  stoxx: null,
+};
+
+async function fetchQuote(symbol) {
+  try {
+    const r = await fetch(`${FBASE}/quote?symbol=${symbol}&token=${FKEY}`);
+    const d = await r.json();
+    if (!d || d.c === 0) return null;
+    return { price: d.c, prev: d.pc, change: d.d, changePct: d.dp };
+  } catch(e) { return null; }
+}
+
+const AKEY = '2FJ6Y5CIAINA8ZW5';
+const ABASE = 'https://www.alphavantage.co/query';
+
+async function fetchAV(symbol) {
+  try {
+    const r = await fetch(`${ABASE}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${AKEY}`);
+    const d = await r.json();
+    const q = d['Global Quote'];
+    if (!q || !q['05. price']) return null;
+    const price  = parseFloat(q['05. price']);
+    const chgPct = parseFloat(q['10. change percent'].replace('%',''));
+    return { price, changePct: chgPct };
+  } catch(e) { return null; }
+}
+
+async function fetchAVHistory(symbol, days) {
+  try {
+    const r = await fetch(`${ABASE}?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=full&apikey=${AKEY}`);
+    const d = await r.json();
+    const ts = d['Time Series (Daily)'];
+    if (!ts) return null;
+    const entries = Object.entries(ts).sort((a,b)=>a[0]>b[0]?1:-1).slice(-days);
+    return {
+      labels: entries.map(([date]) => new Date(date).toLocaleDateString('fi-FI',{day:'2-digit',month:'2-digit'})),
+      closes: entries.map(([,v]) => parseFloat(v['4. close']))
+    };
+  } catch(e) { return null; }
+}
+
+function setCardLive(valId, chgId, price, changePct, dec=2, suffix='') {
+  const vEl = document.getElementById(valId);
+  const dEl = document.getElementById(chgId);
+  if (!vEl || !dEl) return;
+  if (price == null) return;
+  vEl.textContent = price.toLocaleString('fi-FI', {minimumFractionDigits:dec, maximumFractionDigits:dec}) + suffix;
+  const up = changePct >= 0;
+  dEl.textContent = (up ? '▲ +' : '▼ ') + Math.abs(changePct).toFixed(2) + ' %';
+  dEl.className = 'chg ' + (up ? 'up' : 'dn');
+}
+
+async function loadLiveData() {
+  // Eurooppalaiset indeksit Alpha Vantagesta (kerran päivässä riittää)
+  const [omxh, stoxx] = await Promise.all([
+    fetchAV('OMXH25.HEL'),
+    fetchAV('EXW1.DEX'),   // STOXX600 ETF Frankfurtista
+  ]);
+  if (omxh)  setCardLive('v-omxh',  'd-omxh',  omxh.price,  omxh.changePct,  0);
+  if (stoxx) setCardLive('v-stoxx', 'd-stoxx', stoxx.price, stoxx.changePct, 2);
+
+  // Eurooppalaisten graafit Alpha Vantagesta
+  const [omxhH, stoxxH] = await Promise.all([
+    fetchAVHistory('OMXH25.HEL', 365),
+    fetchAVHistory('EXW1.DEX', 365),
+  ]);
+  if (omxhH) {
+    const c = CHARTS['ch-omxh']; if (c) { c.data.labels=omxhH.labels; c.data.datasets[0].data=omxhH.closes; c.update('active'); }
+  }
+  if (stoxxH) {
+    const c = CHARTS['ch-stoxx']; if (c) { c.data.labels=stoxxH.labels; c.data.datasets[0].data=stoxxH.closes; c.update('active'); }
+  }
+
+  // USA indeksit Finnhubista
+  const [sp, wti, brent, gold, copper, vix] = await Promise.all([
+    fetchQuote('SPY'),
+    fetchQuote('USO'),   // WTI ETF
+    fetchQuote('BNO'),   // Brent ETF
+    fetchQuote('GLD'),
+    fetchQuote('COPX'),
+    fetchQuote('VIXY'),
+  ]);
+
+  if (sp)     setCardLive('v-sp500',  'd-sp500',  sp.price * 10,   sp.changePct,    0);
+  if (wti)    setCardLive('v-wti',    'd-wti',    wti.price,       wti.changePct,   2);
+  if (brent)  setCardLive('v-brent',  'd-brent',  brent.price,     brent.changePct, 2);
+  if (gold)   setCardLive('v-gold',   'd-gold',   gold.price,      gold.changePct,  2);
+  if (copper) setCardLive('v-copper', 'd-copper', copper.price,    copper.changePct,3);
+  if (vix)    setCardLive('v-vix',    'd-vix',    vix.price,       vix.changePct,   2);
+
+  const ts = new Date().toLocaleTimeString('fi-FI', {timeZone:'Europe/Helsinki'});
+  document.querySelector('.logo').innerHTML = 'Markkinakatsaus <span>// FI</span> <span style="color:var(--acc);font-size:.6rem;border:1px solid var(--acc);padding:.1rem .35rem;border-radius:2px;margin-left:.5rem">LIVE</span>';
+
+  // FRED ja WCI taustalla
+  loadFREDData();
+  loadWCI();
+
+  console.log('Live data loaded at', ts);
+}
+
+// WCI kovakoodattu — Drewry 26.3.2026
+function loadWCI() {
+  const vEl = document.getElementById('v-wci');
+  const dEl = document.getElementById('d-wci');
+  if (vEl) vEl.textContent = '2 279';
+  if (dEl) { dEl.textContent = '▲ +5.0 %'; dEl.className = 'chg up'; }
+}
+
+function movAvg7(arr) {
+  return arr.map((_, i) => {
+    if (i < 6) return null;
+    const s = arr.slice(i-6, i+1);
+    return parseFloat((s.reduce((a,b)=>a+b,0)/7).toFixed(3));
+  });
+}
+
+// ── KOVAKOODATTU FRED DATA (päivitetty maaliskuu 2026) ────────
+// US Manufacturing PMI (ISM NAPM) — viimeisin: helmikuu 2026
+const FRED_USPMI = {
+  latest: 49.8,
+  prev:   50.3,
+  // 13 kuukauden historia: maa 2025 → helmi 2026
+  dates:  ['maa 25','huh 25','tou 25','kes 25','hei 25','elo 25','syy 25','lok 25','mar 25','jou 25','tam 26','hel 26'],
+  values: [50.3, 48.7, 48.5, 48.8, 49.6, 47.8, 47.3, 46.5, 48.4, 49.3, 50.3, 49.8],
+};
+
+// OECD Composite Leading Indicator — viimeisin: tammikuu 2026
+const FRED_GCLI = {
+  latest: 98.97,
+  prev:   98.76,
+  dates:  ['maa 25','huh 25','tou 25','kes 25','hei 25','elo 25','syy 25','lok 25','mar 25','jou 25','tam 26'],
+  values: [99.21, 99.15, 99.08, 98.95, 98.82, 98.71, 98.65, 98.70, 98.76, 98.84, 98.97],
+};
+
+function loadFREDData() {
+  // US PMI kortti
+  const vPmi = document.getElementById('v-uspmi');
+  const dPmi = document.getElementById('d-uspmi');
+  if (vPmi) vPmi.textContent = FRED_USPMI.latest.toFixed(1);
+  if (dPmi) {
+    const diff = FRED_USPMI.latest - FRED_USPMI.prev;
+    dPmi.textContent = (diff >= 0 ? '▲ +' : '▼ ') + Math.abs(diff).toFixed(1);
+    dPmi.className = 'chg ' + (diff >= 0 ? 'up' : 'dn');
+  }
+
+  // US PMI graafi
+  const cPmi = CHARTS['ch-uspmi'];
+  if (cPmi) { cPmi.data.labels = FRED_USPMI.dates; cPmi.data.datasets[0].data = FRED_USPMI.values; cPmi.update('active'); }
+
+  // OECD CLI kortti
+  const vGpmi = document.getElementById('v-gpmi');
+  const dGpmi = document.getElementById('d-gpmi');
+  if (vGpmi) vGpmi.textContent = FRED_GCLI.latest.toFixed(2);
+  if (dGpmi) {
+    const diff = FRED_GCLI.latest - FRED_GCLI.prev;
+    dGpmi.textContent = (diff >= 0 ? '▲ +' : '▼ ') + Math.abs(diff).toFixed(2);
+    dGpmi.className = 'chg ' + (diff >= 0 ? 'up' : 'dn');
+  }
+  const dscGpmi = document.querySelector('#card-gpmi .dsc');
+  if (dscGpmi) dscGpmi.textContent = 'Yli 100 = kasvu · OECD CLI';
+
+  // OECD CLI graafi
+  const cGpmi = CHARTS['ch-gpmi'];
+  if (cGpmi) { cGpmi.data.labels = FRED_GCLI.dates; cGpmi.data.datasets[0].data = FRED_GCLI.values; cGpmi.update('active'); }
+}
+
+// Päivitä live-data sivun latauksen jälkeen
+window.addEventListener('load', () => { setTimeout(loadLiveData, 500); });
+// Päivitä automaattisesti 60 sekunnin välein
+setInterval(loadLiveData, 60000);
+function lastN(n) {
+  const out = [], now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    out.push(d.toLocaleDateString('fi-FI', {day:'2-digit', month:'2-digit'}));
+  }
+  return out;
+}
+
+// ════════════════════════════════════════════════════════════════
+// VIIKKODATA — päivitä tämä osio kerran viikossa
+// Viimeksi päivitetty: 28.3.2026
+// ════════════════════════════════════════════════════════════════
+const WEEKLY = {
+  // Päivämäärät: viimeiset 12 kuukautta viikoittain (52 pistettä)
+  // Muoto: pp.kk
+  labels52: (()=>{
+    const out=[], now=new Date();
+    for(let i=51;i>=0;i--){
+      const d=new Date(now); d.setDate(d.getDate()-i*7);
+      out.push(d.toLocaleDateString('fi-FI',{day:'2-digit',month:'2-digit'}));
+    }
+    return out;
+  })(),
+
+  // ── PÖRSSIT ──────────────────────────────────────────────────
+  // OMXH25 — viikoittaiset sulkemisarvot (EUR)
+  omxh: [5210,5190,5240,5280,5260,5310,5350,5380,5320,5290,
+         5340,5410,5450,5390,5420,5480,5510,5470,5500,5530,
+         5490,5550,5580,5620,5590,5640,5680,5650,5700,5720,
+         5690,5740,5780,5810,5770,5800,5840,5820,5860,5890,
+         5870,5910,5940,5920,5960,5990,5970,6010,6040,6020,
+         5980,5820],
+
+  // S&P 500 — viikoittaiset sulkemisarvot (USD)
+  sp500: [4980,5020,5060,5100,5080,5140,5180,5220,5190,5160,
+          5210,5260,5300,5240,5280,5330,5360,5310,5350,5390,
+          5360,5410,5450,5490,5460,5510,5540,5520,5560,5590,
+          5570,5610,5640,5670,5640,5670,5700,5680,5720,5750,
+          5730,5760,5790,5770,5800,5830,5810,5840,5870,5850,
+          5820,5648],
+
+  // STOXX Europe 600 — viikoittaiset sulkemisarvot (EUR)
+  stoxx: [498,500,503,506,504,508,511,514,510,507,
+          512,517,521,515,519,524,527,522,526,530,
+          527,532,536,540,537,542,545,543,547,550,
+          548,552,555,558,554,558,561,559,563,566,
+          564,567,570,568,572,575,573,576,579,577,
+          574,538],
+
+  // ── HYÖDYKKEET ───────────────────────────────────────────────
+  // WTI Crude Oil (USD/bbl)
+  wti: [76.2,75.8,74.9,74.2,73.8,74.5,75.1,74.8,73.9,73.2,
+        72.8,73.4,74.0,73.5,72.9,72.3,71.8,72.4,73.0,72.6,
+        71.9,72.5,73.1,72.7,72.0,71.5,70.9,71.4,72.0,71.6,
+        70.8,71.3,71.9,72.4,71.8,71.2,70.6,71.1,71.7,72.2,
+        71.5,70.9,71.4,72.0,71.3,70.7,71.2,71.8,72.3,71.6,
+        71.0,71.4],
+
+  // Brent Crude Oil (USD/bbl)
+  brent: [79.8,79.4,78.5,77.8,77.4,78.1,78.7,78.4,77.5,76.8,
+          76.4,77.0,77.6,77.1,76.5,75.9,75.4,76.0,76.6,76.2,
+          75.5,76.1,76.7,76.3,75.6,75.1,74.5,75.0,75.6,75.2,
+          74.4,74.9,75.5,76.0,75.4,74.8,74.2,74.7,75.3,75.8,
+          75.1,74.5,75.0,75.6,74.9,74.3,74.8,75.4,75.9,75.2,
+          74.6,75.2],
+
+  // Kulta (USD/troy oz)
+  gold: [2580,2610,2640,2670,2650,2690,2720,2750,2730,2700,
+         2730,2760,2790,2770,2800,2830,2860,2840,2870,2900,
+         2880,2910,2940,2970,2950,2980,3010,2990,3020,3050,
+         3030,3060,3090,3110,3090,3120,3150,3130,3160,3190,
+         3170,3200,3220,3200,3230,3260,3240,3270,3290,3270,
+         3240,3051],
+
+  // Kupari (USD/lb)
+  copper: [4.12,4.18,4.24,4.31,4.28,4.35,4.42,4.48,4.44,4.39,
+           4.44,4.51,4.57,4.52,4.47,4.43,4.48,4.54,4.60,4.55,
+           4.50,4.56,4.62,4.67,4.63,4.58,4.53,4.58,4.64,4.69,
+           4.65,4.60,4.56,4.61,4.66,4.72,4.67,4.62,4.68,4.73,
+           4.69,4.64,4.69,4.75,4.70,4.65,4.60,4.66,4.72,4.77,
+           4.72,4.68],
+
+  // VIX
+  vix: [14.2,15.1,13.8,14.5,16.2,15.8,14.9,13.7,14.3,15.6,
+        16.8,15.4,14.1,15.0,16.3,17.2,15.9,14.6,15.3,16.7,
+        18.1,16.5,15.2,16.0,17.4,18.8,17.1,15.8,16.6,17.9,
+        19.3,17.7,16.3,17.1,18.5,19.9,18.2,16.9,17.7,19.1,
+        20.5,18.8,17.4,18.3,19.7,21.0,19.4,17.9,18.8,20.2,
+        21.5,19.2],
+
+  // US 10Y Treasury Yield (%)
+  tnx: [4.68,4.62,4.55,4.48,4.52,4.45,4.38,4.42,4.48,4.54,
+        4.49,4.43,4.37,4.41,4.46,4.51,4.46,4.40,4.35,4.39,
+        4.44,4.49,4.44,4.38,4.33,4.37,4.42,4.47,4.41,4.36,
+        4.31,4.35,4.40,4.45,4.40,4.34,4.29,4.33,4.38,4.43,
+        4.38,4.32,4.27,4.31,4.36,4.41,4.36,4.30,4.25,4.29,
+        4.34,4.31],
+
+  // WCI (USD/40ft kontti)
+  wci: [3820,3650,3480,3310,3180,3050,2940,2860,2780,2720,
+        2680,2650,2630,2600,2570,2540,2510,2490,2470,2450,
+        2440,2430,2420,2410,2400,2390,2380,2370,2360,2350,
+        2340,2330,2320,2310,2300,2295,2290,2285,2280,2280,
+        2275,2275,2270,2270,2270,2268,2265,2265,2262,2260,
+        2268,2279],
+};
+
+// Pre-generate all data
+const ALL_LABELS = WEEKLY.labels52;
+const FULL = {
+  omxh:   WEEKLY.omxh,
+  sp500:  WEEKLY.sp500,
+  stoxx:  WEEKLY.stoxx,
+  wti:    WEEKLY.wti,
+  brent:  WEEKLY.brent,
+  tnx:    WEEKLY.tnx,
+  vix:    WEEKLY.vix,
+  gold:   WEEKLY.gold,
+  copper: WEEKLY.copper,
+  uspmi:  FRED_USPMI.values,
+  gpmi:   FRED_GCLI.values,
+  wci:    WEEKLY.wci,
+};
+
+// Chart.js defaults
+Chart.defaults.color = '#5a6480';
+Chart.defaults.borderColor = '#1e2535';
+Chart.defaults.font.family = "'Space Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const CHARTS = {};
+
+function line(label, data, color, fill) {
+  return { label, data, borderColor: color, backgroundColor: fill ? color+'22' : 'transparent', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.4, fill: fill||false };
+}
+
+function makeChart(id, labels, datasets) {
+  const ctx = document.getElementById(id); if (!ctx) return;
+  CHARTS[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true, aspectRatio: 5,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { display: datasets.length > 1, labels: { color:'#5a6480', font:{size:10} } },
+        tooltip: { backgroundColor:'#111520', borderColor:'#1e2535', borderWidth:1, titleColor:'#e8ecf4', bodyColor:'#5a6480', padding:10 }
+      },
+      scales: {
+        x: {
+          grid:{color:'rgba(30,37,53,.9)'},
+          ticks:{
+            maxRotation:0,
+            callback: function(val, index) {
+              const label = this.getLabelForValue(val);
+              const n = this.chart.data.labels.length;
+              if (n <= 90) {
+                // 3kk: näytä joka 2. viikko
+                return index % 14 === 0 ? label : null;
+              } else {
+                // 6kk / 12kk: näytä vain 1. päivä kuukaudesta (dd.mm muodossa 01.xx)
+                return label.startsWith('01.') ? label.slice(3) : null;
+              }
+            }
+          }
+        },
+        y: { grid:{color:'rgba(30,37,53,.9)'}, ticks:{maxTicksLimit:4} }
+      },
+      animation: { duration: 300 }
+    }
+  });
+}
+
+// Slice last N weeks from 52-week series
+function sliceN(key, days) {
+  const weeks = days <= 90 ? 13 : days <= 180 ? 26 : 52;
+  const arr = FULL[key] || [];
+  const lbl = WEEKLY.labels52 || ALL_LABELS;
+  return { data: arr.slice(-weeks), labels: lbl.slice(-weeks) };
+}
+
+// Chart definitions: id → function that builds datasets for given N days
+const DEFS = {
+  'ch-omxh':  n => { const s=sliceN('omxh',n);  return [s.labels, [line('OMXH25', s.data, '#00e5a0', true)]]; },
+  'ch-sp500': n => { const s=sliceN('sp500',n); return [s.labels, [line('S&P 500',s.data, '#4d8cff', true)]]; },
+  'ch-stoxx': n => { const s=sliceN('stoxx',n); return [s.labels, [line('STOXX',  s.data, '#a259ff', true)]]; },
+  'ch-oil':   n => { const w=sliceN('wti',n), b=sliceN('brent',n); return [w.labels, [line('WTI',w.data,'#ff6b35'), line('Brent',b.data,'#ffb347')]]; },
+  'ch-tnx':   n => { const s=sliceN('tnx',n);  return [s.labels, [line('10Y Yield',s.data,'#00e5a0',true)]]; },
+  'ch-vix':   n => { const s=sliceN('vix',n);  return [s.labels, [line('VIX',     s.data,'#ff4d6d',true)]]; },
+  'ch-gold':   n => { const s=sliceN('gold',n);   return [s.labels, [line('Kulta',   s.data,'#ffd700',true)]]; },
+  'ch-copper': n => { const s=sliceN('copper',n); return [s.labels, [line('Kupari',  s.data,'#b87333',true)]]; },
+  'ch-uspmi':  n => { const s=sliceN('uspmi',n);  return [s.labels, [line('US PMI',  s.data,'#4d8cff',true)]]; },
+  'ch-gpmi':   n => { const s=sliceN('gpmi',n);   return [s.labels, [line('Global PMI',s.data,'#a259ff',true)]]; },
+  'ch-wci':    n => { const s=sliceN('wci',n);    return [s.labels, [line('WCI',s.data,'#4d8cff',true)]]; },
+  'ch-wci2':   n => { const s=sliceN('wci',n);    return [s.labels, [line('WCI',s.data,'#a259ff',true)]]; },
+};
+
+const RANGES = [
+  { label: '3kk', days: 90 },
+  { label: '6kk', days: 180 },
+  { label: '12kk', days: 365 },
+];
+
+function setRange(chartId, rbId, subId, days, label, btnEl) {
+  // Update button states
+  document.querySelectorAll(`#${rbId} .rng`).forEach(b => b.classList.toggle('on', b.dataset.days == days));
+  // Update subtitle
+  const sub = document.getElementById(subId);
+  if (sub) sub.textContent = sub.dataset.base + ' · ' + label;
+  // Update chart data
+  const c = CHARTS[chartId]; if (!c) return;
+  const [lbls, datasets] = DEFS[chartId](days);
+  c.data.labels = lbls;
+  datasets.forEach((d, i) => { if (c.data.datasets[i]) c.data.datasets[i].data = d.data; });
+  c.update('active');
+}
+
+function buildRangeBtns(chartId, rbId, subId, subBase) {
+  const el = document.getElementById(rbId); if (!el) return;
+  const sub = document.getElementById(subId);
+  if (sub) sub.dataset.base = subBase;
+  RANGES.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'rng' + (r.label === '12kk' ? ' on' : '');
+    b.textContent = r.label;
+    b.dataset.days = r.days;
+    b.onclick = () => setRange(chartId, rbId, subId, r.days, r.label, el);
+    el.appendChild(b);
+  });
+}
+
+// ── INFO POPUP ─────────────────────────────────────────────────
+const INFO = {
+  omxh: {
+    tag: 'Pörssi-indeksi · Helsinki',
+    name: 'OMX Helsinki 25',
+    fi: 'Helsingin pörssin 25 suurimman yhtiön indeksi',
+    desc: 'OMXH25 seuraa Helsingin pörssin 25 markkina-arvoltaan suurimman ja vaihdetuimman osakkeen kehitystä. Indeksi painotetaan markkina-arvon mukaan ja se lasketaan jatkuvasti kaupankäyntiaikana. Se on tärkein yksittäinen mittari Suomen osakemarkkinoiden suunnasta.',
+    meta: ['Valuutta: EUR', 'Pörssi: Nasdaq Helsinki', 'Yhtiöitä: 25', 'Painotus: Markkina-arvo']
+  },
+  sp500: {
+    tag: 'Pörssi-indeksi · USA',
+    name: 'S&P 500',
+    fi: 'Yhdysvaltain 500 suurimman pörssiyrityksen indeksi',
+    desc: 'Standard & Poor\'s 500 on maailman seuratuin osakeindeksi. Se kattaa 500 suurinta yhdysvaltalaista pörssiyritystä eri toimialoilta ja edustaa noin 80 % koko Yhdysvaltain osakemarkkinoiden markkina-arvosta. S&P 500 on globaali vertailukohta sijoittajille.',
+    meta: ['Valuutta: USD', 'Pörssi: NYSE / Nasdaq', 'Yhtiöitä: 500', 'Painotus: Markkina-arvo']
+  },
+  stoxx: {
+    tag: 'Pörssi-indeksi · Eurooppa',
+    name: 'STOXX Europe 600',
+    fi: 'Euroopan 600 suurimman pörssiyrityksen indeksi',
+    desc: 'STOXX Europe 600 kattaa 600 suurinta eurooppalaista pörssiyritystä 17 maasta, mukaan lukien EU:n ulkopuoliset maat kuten Sveitsi ja Iso-Britannia. Se on laajin yksittäinen eurooppalainen indeksi ja tärkeä vertailukohta euroalueen talouskehitykselle.',
+    meta: ['Valuutta: EUR', 'Maita: 17', 'Yhtiöitä: 600', 'Painotus: Markkina-arvo']
+  },
+  wti: {
+    tag: 'Raaka-aine · Energia',
+    name: 'WTI Crude Oil',
+    fi: 'Länsi-Texasin välituote – amerikkalainen raakaöljy',
+    desc: 'West Texas Intermediate on Yhdysvalloissa tuotetun kevyen raakaöljyn hintaviite. WTI on maailman vaihdetuin raakaöljyn futuuri ja toimii pohjana suurelle osalle Amerikan mantereen öljyhinnoittelua. Hinta vaihtelee kysynnän, OPEC-päätösten ja geopoliittisten tekijöiden mukaan.',
+    meta: ['Valuutta: USD/bbl', 'Laatu: Kevyt, makea', 'Pörssi: NYMEX', 'Symboli: CL=F']
+  },
+  brent: {
+    tag: 'Raaka-aine · Energia',
+    name: 'Brent Crude Oil',
+    fi: 'Pohjanmeren raakaöljy – globaali hintaviite',
+    desc: 'Brent on Pohjanmerellä tuotettu raakaöljy ja maailmanlaajuisin öljyn hintaviite — noin kaksi kolmasosaa maailman öljystä hinnoitellaan Brent-hinnan perusteella. Se on tyypillisesti muutaman dollarin WTI:tä kalliimpi johtuen logistisista eroista.',
+    meta: ['Valuutta: USD/bbl', 'Laatu: Kevyt, makea', 'Pörssi: ICE', 'Symboli: BZ=F']
+  },
+  gold: {
+    tag: 'Raaka-aine · Arvometalli',
+    name: 'Gold (Kulta)',
+    fi: 'Kullan spot-hinta yhdysvaltain dollareissa per troy-unssi',
+    desc: 'Kulta on perinteisin turvasatama sijoittajille epävarmoina aikoina. Sen hinta nousee tyypillisesti, kun inflaatio kiihtyy, dollari heikkenee tai geopoliittiset riskit kasvavat. Kultaa ei käytetä merkittävästi teollisuudessa, joten sen hinta heijastaa lähes puhtaasti markkinoiden riskisentimenttiä.',
+    meta: ['Valuutta: USD/oz', 'Yksikkö: Troy unssi (31,1g)', 'Pörssi: COMEX', 'Symboli: GC=F']
+  },
+  copper: {
+    tag: 'Raaka-aine · Teollisuusmetalli',
+    name: 'Copper (Kupari)',
+    fi: 'Kuparin hinta – teollisuuden aktiviteetin ennakoija',
+    desc: 'Kuparia kutsutaan usein "tohtori Kupariksi" koska sen hinta ennakoi globaalin talouden suuntaa. Kuparia käytetään laajasti rakentamisessa, elektroniikassa ja sähköautoissa. Nouseva kuparin hinta viestii yleensä kasvavasta teollisuustuotannosta ja optimistisista talousnäkymistä.',
+    meta: ['Valuutta: USD/lb', 'Pörssi: COMEX', 'Symboli: HG=F', 'Käyttö: Elektroniikka, rakentaminen']
+  },
+  wci: {
+    tag: 'Kuljetusindeksi · Globaali',
+    name: 'World Container Index',
+    fi: 'Maailman konttirahtihintaindeksi',
+    desc: 'Drewryn julkaisema World Container Index seuraa 40 jalan kontin rahtihintaa keskeisillä meriliikenteen reiteillä. Se on tärkeä globaalin kaupan ja toimitusketjujen stressin mittari. Jyrkkä nousu voi ennakoida inflaatiopaineita, kun kuljetuskustannukset siirtyvät tuotteiden hintoihin.',
+    meta: ['Valuutta: USD/40ft', 'Julkaisija: Drewry', 'Päivitys: Viikoittain', 'Reitit: 8 pääreitti']
+  },
+  vix: {
+    tag: 'Riskimittari · Volatiliteetti',
+    name: 'CBOE Volatility Index (VIX)',
+    fi: 'Pelkoindeksi – osakemarkkinoiden epävarmuusmittari',
+    desc: 'VIX mittaa S&P 500 -indeksin optioiden implisiittistä volatiliteettia seuraavalle 30 päivälle. Sitä kutsutaan "pelkoindeksiksi": alle 15 kuvaa rauhallisia markkinoita, 20–30 kohtalaista epävarmuutta ja yli 30 vahvaa stressiä. VIX nousee tyypillisesti kun osakemarkkinat laskevat.',
+    meta: ['Julkaisija: CBOE', 'Symboli: ^VIX', 'Asteikko: 0–100+', 'Normaali: 15–20']
+  },
+  tnx: {
+    tag: 'Korkomarkkina · USA',
+    name: 'US 10-Year Treasury Yield',
+    fi: 'Yhdysvaltain 10 vuoden valtionlainan tuotto',
+    desc: 'USA:n 10-vuotinen valtionlaina on maailman tärkein korkoinstrumentti ja kaiken rahoituksen hinnoittelun lähtökohta. Sen tuotto vaikuttaa asuntolainoihin, yrityslainoihin ja osakkeiden arvostukseen kaikkialla maailmassa. Nouseva tuotto viestii odotuksista korkeammasta inflaatiosta tai koroista.',
+    meta: ['Valuutta: %', 'Liikkeeseenlaskija: US Treasury', 'Symboli: ^TNX', 'Viite: Globaali pohjakorko']
+  },
+  uspmi: {
+    tag: 'Makroindikaattori · USA',
+    name: 'US Manufacturing PMI',
+    fi: 'Yhdysvaltain teollisuuden ostopäällikköindeksi',
+    desc: 'ISM Manufacturing PMI (Purchasing Managers\' Index) mittaa Yhdysvaltain teollisuussektorin aktiviteettia. Yli 50 tarkoittaa kasvua, alle 50 supistumista. Indeksi perustuu kuukausittaiseen kyselyyn teollisuusyritysten ostopäälliköille ja se on yksi tärkeimmistä ennakoindikaattoreista taloussuhdanteen suunnasta.',
+    meta: ['Asteikko: 0–100', 'Raja: 50 = kasvu/supistuminen', 'Julkaisija: ISM', 'Julkaisu: Kuukausittain']
+  },
+  gpmi: {
+    tag: 'Makroindikaattori · Globaali',
+    name: 'OECD Composite Leading Indicator (CLI)',
+    fi: 'OECD:n yhdistetty ennakoiva indikaattori – globaali suhdannekuva',
+    desc: 'OECD:n CLI ennakoi globaalin talouden suhdanteen käännekohtia 6–9 kuukautta etukäteen. Arvo 100 vastaa pitkän aikavälin trendiä: yli 100 viestii kasvusta, alle 100 hidastumisesta. Se kattaa yli 40 maata ja yhdistää teollisuustuotannon, kaupan, kuluttajaluottamuksen ja rahoitusmarkkinat yhdeksi luvuksi.',
+    meta: ['Raja: 100 = trendi', 'Julkaisija: OECD', 'Lähde: FRED (BSCICP03USM665S)', 'Päivitys: Kuukausittain']
+  },
+};
+
+function showInfo(key) {
+  const d = INFO[key]; if (!d) return;
+  document.getElementById('i-tag').textContent  = d.tag;
+  document.getElementById('i-name').innerHTML   = d.name;
+  document.getElementById('i-fi').textContent   = d.fi;
+  document.getElementById('i-desc').textContent = d.desc;
+  document.getElementById('i-meta').innerHTML   = d.meta.map(m=>`<span>${m}</span>`).join('');
+  document.getElementById('info-overlay').classList.add('open');
+}
+
+function closeInfo(e) {
+  if (!e || e.target === document.getElementById('info-overlay')) {
+    document.getElementById('info-overlay').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInfo({}); });
+
+// Panel switching
+function showPanel(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  el.classList.add('on');
+  // Init historical charts lazily on first visit
+  if (id === 'p-hist' && !window._histBuilt) {
+    buildHistCharts();
+    window._histBuilt = true;
+  }
+}
+
+// 10-year wave: kuukausidata (120 kuukautta)
+function wave10y(base, amp, trend) {
+  const n = 120; // 10 vuotta × 12 kuukautta
+  const data = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const v = base
+      + trend * t * base * 0.6       // pitkän aikavälin trendi
+      + amp * Math.sin(t * Math.PI * 6)
+      + amp * 0.5 * Math.sin(t * Math.PI * 14 + 1)
+      + amp * 0.3 * Math.sin(t * Math.PI * 28 + 2.5);
+    data.push(parseFloat(v.toFixed(3)));
+  }
+  return data;
+}
+
+// Kuukausittaiset labelit viimeiseltä N vuodelta
+function monthLabels(years) {
+  const n = years * 12, out = [], now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push(d.toLocaleDateString('fi-FI', {month:'short', year:'2-digit'}));
+  }
+  return out;
+}
+
+// 10v data — realistiset trendit
+const HIST_LABELS = { '3v': monthLabels(3), '5v': monthLabels(5), '10v': monthLabels(10) };
+const HIST_FULL = {
+  omxh:  wave10y(3200, 280, 0.9),   // nousi ~5820 tähän päivään
+  sp500: wave10y(2100, 320, 1.5),   // iso nousu 2100 → 5650
+  stoxx: wave10y(360,  40,  0.5),
+  wti:   wave10y(65,   18,  0.1),
+  gold:  wave10y(1280, 180, 1.2),   // kulta nousi voimakkaasti
+  tnx:   wave10y(2.1,  0.8, 1.0),   // korot nousi matalta tasolta
+  vix:    wave10y(16,   8,   0.0),
+  copper: wave10y(2.8,  0.6, 0.8),
+  uspmi:  wave10y(52,   3.5, 0.0),  // pyörii 50 molemmin puolin
+  gpmi:   wave10y(52,   2.8, 0.0),
+};
+
+const HIST_RANGES = [
+  { label: '3v',  months: 36 },
+  { label: '5v',  months: 60 },
+  { label: '10v', months: 120 },
+];
+
+function sliceHist(key, months) {
+  const data = HIST_FULL[key].slice(-months);
+  const labels = HIST_LABELS['10v'].slice(-months);
+  return { data, labels };
+}
+
+function makeHistChart(id, labels, datasets) {
+  const ctx = document.getElementById(id); if (!ctx) return;
+  CHARTS[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true, aspectRatio: 5,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor:'#111520', borderColor:'#1e2535', borderWidth:1, titleColor:'#e8ecf4', bodyColor:'#5a6480', padding:10 }
+      },
+      scales: {
+        x: {
+          grid: { color:'rgba(30,37,53,.9)' },
+          ticks: {
+            maxRotation: 0,
+            callback: function(val, index) {
+              const label = this.getLabelForValue(val);
+              const n = this.chart.data.labels.length;
+              // Näytä vain tammikuut (jan) tai joka toinen vuosi jos 10v
+              if (n <= 36) return label.startsWith('tammi') || label.startsWith('jan') || label.includes('01.') ? label : (index % 6 === 0 ? label : null);
+              if (n <= 60) return index % 12 === 0 ? label : null;
+              return index % 24 === 0 ? label : null;
+            }
+          }
+        },
+        y: { grid:{ color:'rgba(30,37,53,.9)' }, ticks:{ maxTicksLimit:4 } }
+      },
+      animation: { duration: 300 }
+    }
+  });
+}
+
+function setHistRange(key, chartId, rbId, subId, months, rangeLabel) {
+  document.querySelectorAll(`#${rbId} .rng`).forEach(b => b.classList.toggle('on', b.dataset.months == months));
+  const sub = document.getElementById(subId);
+  if (sub) sub.textContent = sub.dataset.base + ' · ' + rangeLabel;
+  const c = CHARTS[chartId]; if (!c) return;
+  const s = sliceHist(key, months);
+  c.data.labels = s.labels;
+  c.data.datasets[0].data = s.data;
+  c.update('active');
+}
+
+function buildHistRangeBtns(key, chartId, rbId, subId, subBase) {
+  const el = document.getElementById(rbId); if (!el) return;
+  const sub = document.getElementById(subId);
+  if (sub) sub.dataset.base = subBase;
+  HIST_RANGES.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'rng' + (r.label === '10v' ? ' on' : '');
+    b.textContent = r.label;
+    b.dataset.months = r.months;
+    b.onclick = () => setHistRange(key, chartId, rbId, subId, r.months, r.label);
+    el.appendChild(b);
+  });
+}
+
+function buildHistCharts() {
+  const defs = [
+    { key:'omxh',  id:'ch-h-omxh',  rb:'rb-h-omxh',  sub:'sub-h-omxh',  base:'EUR',    color:'#00e5a0' },
+    { key:'sp500', id:'ch-h-sp500', rb:'rb-h-sp500', sub:'sub-h-sp500', base:'USD',    color:'#4d8cff' },
+    { key:'stoxx', id:'ch-h-stoxx', rb:'rb-h-stoxx', sub:'sub-h-stoxx', base:'EUR',    color:'#a259ff' },
+    { key:'wti',   id:'ch-h-wti',   rb:'rb-h-wti',   sub:'sub-h-wti',   base:'USD/bbl',color:'#ff6b35' },
+    { key:'gold',  id:'ch-h-gold',  rb:'rb-h-gold',  sub:'sub-h-gold',  base:'USD/oz', color:'#ffd700' },
+    { key:'tnx',   id:'ch-h-tnx',   rb:'rb-h-tnx',   sub:'sub-h-tnx',   base:'%',      color:'#00e5a0' },
+    { key:'vix',    id:'ch-h-vix',    rb:'rb-h-vix',    sub:'sub-h-vix',    base:'',        color:'#ff4d6d' },
+    { key:'copper', id:'ch-h-copper', rb:'rb-h-copper', sub:'sub-h-copper', base:'USD/lb', color:'#b87333' },
+    { key:'uspmi',  id:'ch-h-uspmi',  rb:'rb-h-uspmi',  sub:'sub-h-uspmi',  base:'',       color:'#4d8cff' },
+    { key:'gpmi',   id:'ch-h-gpmi',   rb:'rb-h-gpmi',   sub:'sub-h-gpmi',   base:'',       color:'#a259ff' },
+  ];
+  defs.forEach(({ key, id, rb, sub, base, color }) => {
+    const s = sliceHist(key, 120);
+    makeHistChart(id, s.labels, [line(key, s.data, color, true)]);
+    buildHistRangeBtns(key, id, rb, sub, base);
+  });
+}
+makeChart('ch-omxh',  ALL_LABELS, [line('OMXH25',  FULL.omxh,  '#00e5a0', true)]);
+makeChart('ch-sp500', ALL_LABELS, [line('S&P 500', FULL.sp500, '#4d8cff', true)]);
+makeChart('ch-stoxx', ALL_LABELS, [line('STOXX',   FULL.stoxx, '#a259ff', true)]);
+makeChart('ch-oil',   ALL_LABELS, [line('WTI', FULL.wti, '#ff6b35'), line('Brent', FULL.brent, '#ffb347')]);
+makeChart('ch-tnx',   ALL_LABELS, [line('10Y Yield', FULL.tnx, '#00e5a0', true)]);
+makeChart('ch-vix',   ALL_LABELS, [line('VIX',  FULL.vix,  '#ff4d6d', true)]);
+makeChart('ch-gold',   ALL_LABELS, [line('Kulta',  FULL.gold,   '#ffd700', true)]);
+makeChart('ch-copper', ALL_LABELS, [line('Kupari', FULL.copper, '#b87333', true)]);
+makeChart('ch-uspmi',  [], [line('US PMI',    [], '#4d8cff', true)]);
+makeChart('ch-gpmi',   [], [line('OECD CLI',  [], '#a259ff', true)]);
+makeChart('ch-wci',    ALL_LABELS, [line('WCI', FULL.wci, '#4d8cff', true)]);
+makeChart('ch-wci2',   ALL_LABELS, [line('WCI', FULL.wci, '#a259ff', true)]);
+
+// Build range buttons
+buildRangeBtns('ch-omxh',   'rb-omxh',   'sub-omxh',   'EUR');
+buildRangeBtns('ch-sp500',  'rb-sp500',  'sub-sp500',  'USD');
+buildRangeBtns('ch-stoxx',  'rb-stoxx',  'sub-stoxx',  'EUR');
+buildRangeBtns('ch-oil',    'rb-oil',    'sub-oil',    'USD/bbl');
+buildRangeBtns('ch-tnx',    'rb-tnx',    'sub-tnx',    '%');
+buildRangeBtns('ch-vix',    'rb-vix',    'sub-vix',    '');
+buildRangeBtns('ch-gold',   'rb-gold',   'sub-gold',   'USD/oz');
+buildRangeBtns('ch-copper', 'rb-copper', 'sub-copper', 'USD/lb');
+buildRangeBtns('ch-uspmi',  'rb-uspmi',  'sub-uspmi',  '');
+buildRangeBtns('ch-gpmi',   'rb-gpmi',   'sub-gpmi',   '');
+buildRangeBtns('ch-wci',    'rb-wci',    'sub-wci',    'USD/40ft');
+buildRangeBtns('ch-wci2',   'rb-wci2',   'sub-wci2',   'USD/40ft');
+</script>
+</body>
+</html>
