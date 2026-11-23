@@ -5,16 +5,17 @@
 // Lähteet:
 //   Yahoo Finance  – pörssit, hyödykkeet, VIX, US 10Y (viikko- ja kuukausidata)
 //   ISM / PR Newswire – USA:n teollisuuden ostopäällikköindeksi (historia ism_history.json:ssa)
+//   S&P Global     – euroalueen ja USA:n teollisuus-PMI tiedotteiden PDF:istä (historia spg_pmi_history.json:ssa)
 //   OECD           – G20:n ennakoiva suhdanneindikaattori (CLI)
 //   Drewry         – World Container Index (viikoittain, historia tallennetaan wci_history.json:iin)
 //
 // Jos jokin lähde ei vastaa, sen edellinen data säilyy data.js:ssä. Ajo: node update_data.mjs
 
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
 const KK = ['tammi', 'helmi', 'maalis', 'huhti', 'touko', 'kesä', 'heinä', 'elo', 'syys', 'loka', 'marras', 'joulu'];
-const WEEKS = 52;
 const MONTHS = 120;
 
 const SYMBOLS = {
@@ -33,13 +34,6 @@ const round = (x, d = 2) => (x == null || !Number.isFinite(x) ? null : Number(x.
 const iso = d => d.toISOString().slice(0, 10);
 const monthKey = d => d.toISOString().slice(0, 7);
 const monthLabel = key => `${KK[Number(key.slice(5, 7)) - 1]} ${key.slice(2, 4)}`;
-
-// Viikon maanantai (UTC-päivämäärä) annetulle päivälle
-function mondayOf(d) {
-  const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  m.setUTCDate(m.getUTCDate() - ((m.getUTCDay() + 6) % 7));
-  return m;
-}
 
 async function fetchJson(url, opts = {}) {
   const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(30000), ...opts });
@@ -63,16 +57,11 @@ async function yahoo(symbol, range, interval) {
 
 // ── Aikajanat ───────────────────────────────────────────────
 const now = new Date();
-const thisMonday = mondayOf(now);
-const weekGrid = Array.from({ length: WEEKS }, (_, i) => {
-  const d = new Date(thisMonday);
-  d.setUTCDate(d.getUTCDate() - (WEEKS - 1 - i) * 7);
-  return iso(d);
-});
 const monthGrid = Array.from({ length: MONTHS }, (_, i) => {
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (MONTHS - 1 - i), 1));
   return monthKey(d);
 });
+const pctCh = (a, b) => (a != null && b ? round((a / b - 1) * 100, 2) : null);
 
 // ── Edellinen data (varalle, jos lähde ei vastaa) ───────────
 let old = {};
@@ -81,64 +70,72 @@ try {
   old = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
 } catch { /* ensimmäinen ajo */ }
 
+// Sarjat ovat muotoa { d: ['YYYY-MM-DD', ...], v: [arvo, ...] } – kuvaajat piirtävät pisteet oikeille päiville.
 const out = {
   updated: now.toISOString(),
-  weekly: { labels: weekGrid.map(d => `${d.slice(8, 10)}.${d.slice(5, 7)}`) },
   cards: {},
-  hist: { labels: monthGrid.map(monthLabel) },
+  daily: {},   // 1 v päivän päätöskurssit (12 kk -kuvaajat)
+  hist: {},    // 10 v viikon päätöskurssit ja makron kuukausisarjat (10 v -kuvaajat)
   macro: {},
   wci: null,
 };
 const failed = [];
 
+// Pisteet → {d, v}; saman päivän useasta pisteestä jää viimeinen
+function toSeries(points, dec, dateOf = p => iso(p.date)) {
+  const m = new Map();
+  for (const p of points) m.set(dateOf(p), round(p.close, dec));
+  return { d: [...m.keys()], v: [...m.values()] };
+}
+
 // ── Yahoo Finance ───────────────────────────────────────────
 for (const [key, sym] of Object.entries(SYMBOLS)) {
   try {
-    const wk = await yahoo(sym, '1y', '1wk');
-    const byWeek = {};
-    for (const p of wk.points) byWeek[iso(mondayOf(p.date))] = p.close;
-    let last = null;
-    const series = weekGrid.map(w => (last = byWeek[w] ?? last)); // täytä aukot edellisellä arvolla
-    if (series.filter(v => v != null).length < 10) throw new Error('liian vähän viikkodataa');
     const dec = key === 'copper' ? 3 : 2;
-    out.weekly[key] = series.map(v => round(v, dec));
-
-    const latest = wk.price ?? series.at(-1);
-    const prevWeek = series.at(-2);
+    const dy = await yahoo(sym, '1y', '1d');
+    const daily = toSeries(dy.points, dec);
+    if (daily.v.length < 50) throw new Error('liian vähän päivädataa');
+    const latest = dy.price ?? daily.v.at(-1);
+    daily.v[daily.v.length - 1] = round(latest, dec); // viimeisin piste = sama luku kuin kortissa
+    out.daily[key] = daily;
     out.cards[key] = {
       value: round(latest, dec),
-      changePct: prevWeek ? round((latest / prevWeek - 1) * 100, 2) : null,
+      date: daily.d.at(-1),
+      dayPct: pctCh(latest, daily.v.at(-2)),
+      weekPct: pctCh(latest, daily.v.at(-6)),
     };
 
-    const mo = await yahoo(sym, '10y', '1mo');
-    const byMonth = {};
-    for (const p of mo.points) byMonth[monthKey(p.date)] = p.close;
-    out.hist[key] = monthGrid.map(m => round(byMonth[m] ?? null, dec));
+    // 10 v viikkodata. Yahoo merkitsee viikon alkupäivälle, mutta arvo on viikon viimeinen
+    // päätöskurssi, joten siirretään piste viikon perjantaille (viimeinen piste = tämä päivä).
+    const wk = await yahoo(sym, '10y', '1wk');
+    const hist = toSeries(wk.points, dec, p => {
+      const f = new Date(p.date); f.setUTCDate(f.getUTCDate() + 4); return iso(f);
+    });
+    hist.d[hist.d.length - 1] = daily.d.at(-1);
+    hist.v[hist.v.length - 1] = round(latest, dec);
+    out.hist[key] = hist;
     console.log(`OK  ${key.padEnd(7)} ${sym.padEnd(8)} ${latest}`);
   } catch (e) {
     failed.push(key);
     console.log(`VIRHE ${key} (${sym}): ${e.message} – käytetään edellistä dataa`);
-    if (old.weekly?.[key]) out.weekly[key] = old.weekly[key];
+    if (old.daily?.[key]) out.daily[key] = old.daily[key];
     if (old.cards?.[key]) out.cards[key] = old.cards[key];
-    if (old.hist?.[key]) out.hist[key] = old.hist[key];
+    if (old.hist?.[key]?.d) out.hist[key] = old.hist[key];
   }
 }
 
 // ── Kuukausisarjat makrolle ─────────────────────────────────
 function monthlySeries(obs, label) {
   // obs: [{month:'YYYY-MM', value}], vanhimmasta uusimpaan
-  const last = obs.slice(-13);
-  const byMonth = Object.fromEntries(obs.map(o => [o.month, o.value]));
+  const h = obs.slice(-MONTHS);
   return {
     card: {
       label,
-      latest: last.at(-1).value,
-      prev: last.at(-2).value,
-      period: monthLabel(last.at(-1).month),
-      dates: last.map(o => monthLabel(o.month)),
-      values: last.map(o => o.value),
+      latest: obs.at(-1).value,
+      prev: obs.at(-2).value,
+      period: monthLabel(obs.at(-1).month),
     },
-    hist: monthGrid.map(m => byMonth[m] ?? null),
+    hist: { d: h.map(o => `${o.month}-01`), v: h.map(o => o.value) },
   };
 }
 
@@ -181,6 +178,94 @@ if (ismHist.length >= 13) {
   const s = monthlySeries(ismHist, 'ISM PMI');
   out.macro.ism = s.card;
   out.hist.ism = s.hist;
+}
+
+// S&P Global Manufacturing PMI: euroalue ja USA (sama menetelmä, joten vertailukelpoiset).
+// Luvut ovat vain tiedotteiden PDF:issä. Ennakko (flash) julkaistaan kuun lopulla ja lopullinen
+// luku seuraavan kuun alussa; lopullinen korvaa ennakon. Flash-tiedotteessa on myös edellisen
+// kuun lopullinen luku, esim. "Flash Eurozone Manufacturing PMI: 52.9 (October: 52.7)".
+function pdfText(buf) {
+  const s = buf.toString('latin1');
+  let txt = '';
+  for (const m of s.matchAll(/stream\r?\n/g)) {
+    const st = m.index + m[0].length, en = s.indexOf('endstream', st);
+    let d;
+    try { d = zlib.inflateSync(buf.subarray(st, en)).toString('latin1'); } catch { continue; }
+    for (const p of d.matchAll(/\[([^\]]*)\]\s*TJ|\(((?:\\.|[^\\)])*)\)\s*Tj|(ET)/g)) {
+      if (p[3]) { txt += '\n'; continue; }
+      if (p[1] != null) {
+        for (const q of p[1].matchAll(/\(((?:\\.|[^\\)])*)\)|(-?\d+\.?\d*)/g))
+          txt += q[1] != null ? q[1] : (Number(q[2]) < -200 ? ' ' : '');
+      } else txt += p[2];
+    }
+  }
+  return txt.replace(/\\([()])/g, '$1').replace(/[ \t]+/g, ' ');
+}
+const SPG_RELEASES = [
+  [/^(S&P Global|HCOB) Flash Eurozone PMI$/, 'ez', 'flash', 'Eurozone'],
+  [/^(S&P Global|HCOB) Eurozone Manufacturing PMI$/, 'ez', 'final', 'Eurozone'],
+  [/^S&P Global Flash US PMI$/, 'us', 'flash', 'US'],
+  [/^S&P Global US Manufacturing PMI$/, 'us', 'final', 'US'],
+];
+const prevMonth = (y, m) => (m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`);
+let spgHist = { ez: [], us: [] };
+try { spgHist = JSON.parse(fs.readFileSync('spg_pmi_history.json', 'utf8')); } catch { /* tyhjä */ }
+function spgSet(region, month, value, flash) {
+  if (!(value >= 25 && value <= 75)) return;
+  const arr = spgHist[region];
+  const e = arr.find(p => p.month === month);
+  if (!e) arr.push({ month, value, flash });
+  else if (!flash || e.flash) { e.value = value; e.flash = flash; } // ennakko ei korvaa lopullista
+}
+try {
+  const r = await fetch('https://www.pmi.spglobal.com/Public/Release/PressReleases', { headers: UA, signal: AbortSignal.timeout(30000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const h = (await r.text()).replace(/\s+/g, ' ');
+  let read = 0;
+  for (const m of h.matchAll(/releaseDate">([^<]*)<\/span> <span class="releaseTitle">([^<]*)<\/span> <span class="greenListItem"><a href="[^"]*PressRelease\/([0-9a-f]{32})/g)) {
+    const title = m[2].replace(/&amp;/g, '&').trim();
+    const rel = SPG_RELEASES.find(([re]) => re.test(title));
+    const dm = m[1].replace(/&nbsp;/g, ' ').match(/([A-Z][a-z]+) (\d+) (\d{4})/);
+    if (!rel || !dm || !MONTH_EN[dm[1]]) continue;
+    const [, region, kind, reg] = rel;
+    const y = Number(dm[3]), mo = MONTH_EN[dm[1]];
+    // Palvelin palauttaa välillä tyhjän vastauksen, jos pyyntöjä tulee tiheään: yritetään uudelleen
+    let buf = Buffer.alloc(0);
+    for (let i = 0; i < 3 && buf.length < 1000; i++) {
+      if (i) await new Promise(res => setTimeout(res, 10000 * i));
+      const pr = await fetch(`https://www.pmi.spglobal.com/Public/Home/PressRelease/${m[3]}`, { headers: UA, signal: AbortSignal.timeout(30000) });
+      buf = Buffer.from(await pr.arrayBuffer());
+    }
+    if (buf.length < 1000) { console.log(`  S&P: tyhjä vastaus (${title})`); continue; }
+    const txt = pdfText(buf);
+    if (kind === 'flash') {
+      const f = txt.match(new RegExp(`Flash ${reg} Manufacturing PMI[^:\\n]*: ?(\\d\\d\\.\\d) ?\\n? ?\\(\\w+: ?(\\d\\d\\.\\d)\\)`));
+      if (!f) { console.log(`  S&P: lukua ei löytynyt (${title})`); continue; }
+      spgSet(region, `${y}-${String(mo).padStart(2, '0')}`, Number(f[1]), true);
+      spgSet(region, prevMonth(y, mo), Number(f[2]), false);
+    } else {
+      const f = txt.match(new RegExp(`${reg} Manufacturing PMI[^\\n]{0,40}? at (\\d\\d\\.\\d)`));
+      if (!f) { console.log(`  S&P: lukua ei löytynyt (${title})`); continue; }
+      spgSet(region, prevMonth(y, mo), Number(f[1]), false);
+    }
+    read++;
+    await new Promise(res => setTimeout(res, 1000));
+  }
+  if (!read) throw new Error('yhtään PMI-tiedotetta ei saatu luettua');
+  for (const k of ['ez', 'us']) spgHist[k].sort((a, b) => a.month.localeCompare(b.month));
+  fs.writeFileSync('spg_pmi_history.json', JSON.stringify(spgHist, null, 1) + '\n');
+  console.log(`OK  spg-pmi  euroalue ${spgHist.ez.at(-1)?.value}, USA ${spgHist.us.at(-1)?.value} (${read} tiedotetta)`);
+} catch (e) {
+  failed.push('spg-pmi');
+  console.log(`VIRHE S&P Global PMI: ${e.message} – käytetään tallennettua historiaa`);
+}
+for (const [region, key, label] of [['ez', 'pmi_ez', 'Euroalue PMI'], ['us', 'pmi_us', 'USA PMI (S&P)']]) {
+  if (spgHist[region]?.length >= 2) {
+    const s = monthlySeries(spgHist[region], label);
+    s.card.flash = Boolean(spgHist[region].at(-1).flash);
+    out.macro[key] = s.card;
+    out.hist[key] = s.hist;
+  }
 }
 
 // OECD: G20 Composite Leading Indicator (100 = pitkän aikavälin trendi)
@@ -236,19 +321,122 @@ try {
   console.log(`VIRHE WCI: ${e.message} – käytetään tallennettua historiaa`);
 }
 if (wciHist.length) {
-  const h = wciHist.slice(-WEEKS);
+  const h = wciHist;
   const latest = h.at(-1), prev = h.at(-2);
   out.wci = {
-    labels: h.map(p => `${p.date.slice(8, 10)}.${p.date.slice(5, 7)}`),
-    values: h.map(p => p.value),
+    d: h.map(p => p.date),
+    v: h.map(p => p.value),
     latest: latest.value,
     date: latest.date,
     changePct: prev ? round((latest.value / prev.value - 1) * 100, 1) : null,
   };
 }
 
+// ── Seurantalista ───────────────────────────────────────────
+// Lisää tai poista rivejä tästä. sym = Yahoo Finance -tunnus (ETF:t Xetrasta EUR-hinnoin kuten Nordnetissa).
+const WATCHLIST = [
+  { sym: 'TSM',     name: 'Taiwan Semiconductor (ADR)', type: 'Osake' },
+  { sym: 'ASML.AS', name: 'ASML Holding',               type: 'Osake' },
+  { sym: 'META',    name: 'Meta Platforms A',           type: 'Osake' },
+  { sym: 'MSFT',    name: 'Microsoft',                  type: 'Osake' },
+  { sym: 'GOOGL',   name: 'Alphabet A',                 type: 'Osake' },
+  { sym: 'GOOG',    name: 'Alphabet C',                 type: 'Osake' },
+  { sym: 'AMZN',    name: 'Amazon.com',                 type: 'Osake' },
+  { sym: 'ORCL',    name: 'Oracle',                     type: 'Osake' },
+  { sym: 'NVDA',    name: 'NVIDIA',                     type: 'Osake' },
+  { sym: 'AVGO',    name: 'Broadcom',                   type: 'Osake' },
+  { sym: 'AMD',     name: 'Advanced Micro Devices',     type: 'Osake' },
+  { sym: 'XAIX.DE', name: 'Xtrackers AI & Big Data UCITS ETF 1C',  type: 'ETF' },
+  { sym: 'WTI2.DE', name: 'WisdomTree AI UCITS ETF USD Acc',       type: 'ETF' },
+  { sym: 'XMLD.DE', name: 'L&G Artificial Intelligence ETF',       type: 'ETF' },
+  { sym: 'USMC.DE', name: 'Franklin US Mega Cap 100 UCITS ETF',    type: 'ETF' },
+  { sym: 'SNP1.DE', name: 'L&G S&P 100 UCITS ETF USD Acc',         type: 'ETF' },
+  { sym: 'IS20.DE', name: 'iShares S&P 500 Top 20 ETF USD Acc',    type: 'ETF' },
+];
+
+const pct = (a, b) => (a != null && b ? round((a / b - 1) * 100, 1) : null);
+const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+const fmtFi = (x, d = 1) => x.toFixed(d).replace('.', ',').replace('-', '−');
+
+// Lyhyt sääntöpohjainen kuvaus kurssikehityksestä. Ei sijoitussuositus.
+function analyse(w, bench1m) {
+  const s = [];
+  if (w.ma50 && w.ma200) {
+    if (w.price > w.ma50 && w.price > w.ma200) s.push('Nouseva trendi: kurssi on 50 ja 200 päivän keskiarvon yläpuolella.');
+    else if (w.price < w.ma50 && w.price < w.ma200) s.push('Laskeva trendi: kurssi on 50 ja 200 päivän keskiarvon alapuolella.');
+    else if (w.price > w.ma200) s.push('Pitkä trendi on nouseva, mutta kurssi on painunut alle 50 päivän keskiarvon.');
+    else s.push('Kurssi on noussut yli 50 päivän keskiarvon, mutta on vielä alle 200 päivän keskiarvon.');
+  }
+  if (w.fromHigh != null) {
+    if (w.fromHigh > -3) s.push('Kurssi on lähellä vuoden huippuaan.');
+    else if (w.fromHigh < -20) s.push(`Kurssi on ${fmtFi(-w.fromHigh, 0)} % alle vuoden huipun.`);
+  }
+  if (w.m1 != null && bench1m != null) {
+    const d = w.m1 - bench1m;
+    if (d > 5) s.push(`Kuukaudessa ${fmtFi(d, 0)} %-yks. S&P 500 -indeksiä paremmin.`);
+    else if (d < -5) s.push(`Kuukaudessa ${fmtFi(-d, 0)} %-yks. S&P 500 -indeksiä heikommin.`);
+    else s.push('Kuukauden kehitys on ollut markkinan tahdissa.');
+  }
+  if (w.day != null && Math.abs(w.day) >= 5) s.push(`Viimeisin päivä oli poikkeuksellinen (${w.day > 0 ? '+' : ''}${fmtFi(w.day)} %).`);
+  if (w.vol != null && w.vol > 55) s.push(`Kurssi heiluu paljon (vuositasolla n. ${fmtFi(w.vol, 0)} %).`);
+  return s.join(' ');
+}
+
+const watch = [];
+let bench1m = null;
+try {
+  const b = await yahoo('^GSPC', '3mo', '1d');
+  const c = b.points.map(p => p.close);
+  bench1m = pct(c.at(-1), c.at(-22));
+} catch { /* ilman vertailua */ }
+for (const it of WATCHLIST) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(it.sym)}?range=1y&interval=1d`;
+    const res = (await fetchJson(url)).chart.result[0];
+    const pts = res.timestamp.map((t, i) => ({ t: t * 1000, c: res.indicators.quote[0].close[i] })).filter(p => p.c != null);
+    const c = pts.map(p => p.c);
+    const price = res.meta.regularMarketPrice ?? c.at(-1);
+    const yearStart = pts.findIndex(p => new Date(p.t).getUTCFullYear() === now.getUTCFullYear());
+    const rets = c.slice(-31).map((x, i, a) => (i ? Math.log(x / a[i - 1]) : null)).slice(1);
+    const sd = Math.sqrt(mean(rets.map(r => (r - mean(rets)) ** 2)));
+    const w = {
+      sym: it.sym, name: it.name, type: it.type, currency: res.meta.currency,
+      price: round(price, 2),
+      day: pct(price, c.at(-2)),
+      w1: pct(price, c.at(-6)),
+      m1: pct(price, c.at(-22)),
+      ytd: yearStart > 0 ? pct(price, c[yearStart - 1]) : null,
+      y1: pct(price, c[0]),
+      high52: round(Math.max(...c), 2),
+      low52: round(Math.min(...c), 2),
+      ma50: c.length >= 50 ? round(mean(c.slice(-50)), 2) : null,
+      ma200: c.length >= 200 ? round(mean(c.slice(-200)), 2) : null,
+      vol: round(sd * Math.sqrt(252) * 100, 0),
+      spark: c.slice(-63).map(x => round(x, 2)),
+    };
+    w.fromHigh = pct(price, w.high52);
+    w.text = analyse(w, bench1m);
+    watch.push(w);
+  } catch (e) {
+    console.log(`VIRHE seuranta ${it.sym}: ${e.message}`);
+    const o = old.watch?.items?.find(x => x.sym === it.sym);
+    if (o) watch.push(o);
+  }
+}
+if (watch.length) {
+  const stocks = watch.filter(w => w.type === 'Osake' && w.m1 != null);
+  const up = watch.filter(w => w.ma50 && w.price > w.ma50).length;
+  const best = [...watch].filter(w => w.m1 != null).sort((a, b) => b.m1 - a.m1);
+  const parts = [];
+  if (stocks.length) parts.push(`Seurattujen osakkeiden kurssit ovat muuttuneet kuukaudessa keskimäärin ${stocks.length && mean(stocks.map(w => w.m1)) >= 0 ? '+' : ''}${fmtFi(mean(stocks.map(w => w.m1)))} %${bench1m != null ? ` (S&P 500 ${bench1m >= 0 ? '+' : ''}${fmtFi(bench1m)} %)` : ''}.`);
+  parts.push(`${up}/${watch.length} on 50 päivän keskiarvonsa yläpuolella.`);
+  if (best.length >= 2) parts.push(`Kuukauden vahvin: ${best[0].name} (${best[0].m1 >= 0 ? '+' : ''}${fmtFi(best[0].m1)} %), heikoin: ${best.at(-1).name} (${best.at(-1).m1 >= 0 ? '+' : ''}${fmtFi(best.at(-1).m1)} %).`);
+  out.watch = { summary: parts.join(' '), bench1m, items: watch };
+  console.log(`OK  seuranta ${watch.length}/${WATCHLIST.length}`);
+}
+
 // ── Tallennus ───────────────────────────────────────────────
-const total = Object.keys(SYMBOLS).length + 3;
+const total = Object.keys(SYMBOLS).length + 4;
 if (failed.length >= total) {
   console.error('Kaikki lähteet epäonnistuivat – data.js:ää ei muutettu.');
   process.exit(1);

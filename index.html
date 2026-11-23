@@ -72,6 +72,38 @@ nav a { font-family: 'Space Mono', monospace; font-size: .68rem; letter-spacing:
 nav a:hover { color: var(--txt); }
 nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
 .panel { display: none; }
+/* SEURANTA */
+.wsum { background: var(--sur); border: 1px solid var(--brd); border-left: 3px solid var(--acc); border-radius: 4px; padding: 1rem 1.2rem; font-size: .85rem; line-height: 1.6; margin-bottom: 1.2rem; }
+.wnote { font-size: .7rem; color: var(--mut); margin-top: .5rem; }
+.wrap { overflow-x: auto; background: var(--sur); border: 1px solid var(--brd); border-radius: 4px; }
+table.watch { width: 100%; border-collapse: collapse; font-size: .8rem; min-width: 760px; }
+table.watch th { font-family: 'Space Mono', monospace; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); text-align: right; padding: .7rem .6rem; border-bottom: 1px solid var(--brd); white-space: nowrap; font-weight: 400; }
+table.watch th:first-child, table.watch td:first-child { text-align: left; }
+table.watch td { padding: .55rem .6rem; text-align: right; font-family: 'Space Mono', monospace; font-size: .74rem; white-space: nowrap; }
+table.watch tr.main td { border-top: 1px solid var(--brd); padding-top: .75rem; }
+table.watch td.nm { font-family: 'DM Sans', sans-serif; font-size: .85rem; font-weight: 700; white-space: normal; }
+table.watch td.nm span { display: block; font-family: 'Space Mono', monospace; font-size: .6rem; color: var(--mut); font-weight: 400; margin-top: .1rem; }
+table.watch tr.txt td { text-align: left; white-space: normal; font-family: 'DM Sans', sans-serif; font-size: .78rem; color: var(--txt); opacity: .8; padding-top: 0; padding-bottom: .8rem; line-height: 1.5; }
+table.watch svg { display: block; margin-left: auto; }
+.tag { font-family: 'Space Mono', monospace; font-size: .55rem; color: var(--ac3); border: 1px solid var(--ac3); border-radius: 2px; padding: 0 .3rem; margin-left: .35rem; vertical-align: middle; }
+nav { overflow-x: auto; }
+.charts { grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr)); }
+@media (max-width: 700px) {
+  header { flex-wrap: wrap; padding: .8rem 1rem; }
+  #upd { order: 3; width: 100%; margin: 0 !important; font-size: .65rem; }
+  nav { padding: 0 .5rem; }
+  main { padding: 1rem; }
+  table.watch { min-width: 0; }
+  table.watch thead { display: none; }
+  table.watch tr.main { display: flex; flex-wrap: wrap; gap: .3rem .9rem; padding: .8rem .8rem .4rem; border-top: 1px solid var(--brd); }
+  table.watch tr.main td { border: 0; padding: 0; text-align: left; }
+  table.watch tr.main td.nm { width: 100%; }
+  table.watch tr.main td[data-l]::before { content: attr(data-l); display: block; font-size: .52rem; letter-spacing: .08em; color: var(--mut); text-transform: uppercase; }
+  table.watch tr.main td.sp { width: 100%; }
+  table.watch tr.main td.sp svg { margin-left: 0; width: 100%; }
+  table.watch tr.txt { display: block; padding: 0 .8rem .4rem; }
+  table.watch tr.txt td { display: block; padding: .3rem 0 .6rem; }
+}
 .panel.on { display: block; }
 
 /* INFO POPUP */
@@ -111,6 +143,7 @@ nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
 </header>
 <nav>
   <a class="on" onclick="showPanel('p-main',this)">Markkinat</a>
+  <a onclick="showPanel('p-watch',this)">Seurattavat</a>
   <a onclick="showPanel('p-hist',this)">Historical Data</a>
 </nav>
 <main>
@@ -245,6 +278,32 @@ nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
   </div>
 </div>
 
+<h2>Ostopäällikköindeksit – euroalue ja USA (S&amp;P Global)</h2>
+<div class="cards">
+  <div class="card blue">
+    <div class="lbl">Euroalue teollisuus-PMI <button class="info-btn" onclick="showInfo('spg')">?</button></div>
+    <div class="sym">S&amp;P Global · Eurozone</div>
+    <div class="val" id="v-pmi_ez">–</div>
+    <div class="chg" id="d-pmi_ez"></div>
+    <div class="dsc">Yli 50 = teollisuus kasvaa · <span id="p-pmi_ez"></span></div>
+  </div>
+  <div class="card blue">
+    <div class="lbl">USA teollisuus-PMI <button class="info-btn" onclick="showInfo('spg')">?</button></div>
+    <div class="sym">S&amp;P Global · US</div>
+    <div class="val" id="v-pmi_us">–</div>
+    <div class="chg" id="d-pmi_us"></div>
+    <div class="dsc">Yli 50 = teollisuus kasvaa · <span id="p-pmi_us"></span></div>
+  </div>
+</div>
+<div class="charts">
+  <div class="chartbox full">
+    <div class="chdr"><h3>Teollisuus-PMI: euroalue vs USA <button class="info-btn" onclick="showInfo('spg')">?</button></h3><div class="rngs" id="rb-spg"></div></div>
+    <div class="sub" id="sub-spg">12 kk · 50 = raja</div>
+    <canvas id="ch-spg" height="120"></canvas>
+    <p class="expl"><b>Mitä tämä mittaa?</b> S&amp;P Globalin ostopäällikköindeksit kysyvät joka kuukausi teollisuusyritysten ostopäälliköiltä, kasvoivatko uudet tilaukset, tuotanto, työllisyys, toimitusajat ja varastot. Molemmat alueet mitataan samalla menetelmällä, joten luvut ovat suoraan vertailukelpoisia.<br><br><b>Miten tulkitaan?</b> Yli 50 tarkoittaa kasvua ja alle 50 supistumista. Euroalueen luku kuvaa myös Suomen tärkeimpien vientimarkkinoiden (Saksa, Ruotsi, euroalue) teollisuuden tilaa. Kahden käyrän ero kertoo, kumman alueen teollisuus vetää paremmin. Kuun lopulla julkaistava <i>ennakko</i> (flash) tarkentuu lopulliseksi seuraavan kuun alussa. USA:n luku poikkeaa yleensä vähän ISM-indeksistä, koska kyselyjen otos ja painotukset ovat erilaiset.</p>
+  </div>
+</div>
+
 <h2>Historialliset kuvaajat – Suhdanne</h2>
 <div class="charts">
   <div class="chartbox">
@@ -261,6 +320,16 @@ nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
 </div>
 
 </div> <!-- /p-main -->
+
+<div id="p-watch" class="panel">
+<h2>Kiinnostavat seurattavat – yhtiöt ja rahastot</h2>
+<div class="wsum"><div id="w-summary">–</div>
+  <div class="wnote">Automaattinen, sääntöpohjainen kuvaus kurssikehityksestä (trendi, liukuvat keskiarvot, vertailu S&amp;P 500:aan). Ei sijoitussuositus. Hinnat päivittyvät datapäivityksen yhteydessä, eivät reaaliajassa.</div></div>
+<div class="wrap"><table class="watch">
+  <thead><tr><th>Nimi</th><th>Hinta</th><th>Päivä</th><th>1 vk</th><th>1 kk</th><th>YTD</th><th>1 v</th><th>Huipusta</th><th>3 kk</th></tr></thead>
+  <tbody id="w-body"></tbody>
+</table></div>
+</div> <!-- /p-watch -->
 
 <!-- PANEL: HISTORICAL DATA -->
 <div id="p-hist" class="panel">
@@ -355,7 +424,11 @@ function renderCards() {
   for (const [k, dec] of Object.entries(CARD_DEC)) {
     const c = D.cards[k]; if (!c) continue;
     const v = document.getElementById('v-' + k); if (v) v.textContent = fmt(c.value, dec);
-    setChg(document.getElementById('d-' + k), c.changePct, 2, ' % / vk');
+    const dEl = document.getElementById('d-' + k);
+    setChg(dEl, c.dayPct ?? c.changePct, 2, ' %');
+    if (dEl && c.weekPct != null) dEl.insertAdjacentHTML('beforeend', '<span style="color:var(--mut);font-weight:400"> · vk ' + (c.weekPct >= 0 ? '+' : '−') + fmt(Math.abs(c.weekPct), 1) + ' %</span>');
+    const cd = c.date ? new Date(c.date + 'T12:00:00Z').toLocaleDateString('fi-FI') : '';
+    if (dEl && cd) dEl.title = 'Päätöskurssi / viimeisin hinta ' + cd;
   }
   if (D.wci) {
     document.getElementById('v-wci').textContent = fmt(D.wci.latest, 0);
@@ -363,18 +436,75 @@ function renderCards() {
     const p = document.getElementById('p-wci');
     if (p) p.textContent = 'USD / 40ft · ' + new Date(D.wci.date).toLocaleDateString('fi-FI');
   }
-  for (const [k, dec] of [['ism', 1], ['cli', 2]]) {
+  for (const [k, dec] of [['ism', 1], ['cli', 2], ['pmi_ez', 1], ['pmi_us', 1]]) {
     const m = D.macro[k]; if (!m) continue;
     document.getElementById('v-' + k).textContent = fmt(m.latest, dec);
     setChg(document.getElementById('d-' + k), m.latest - m.prev, dec, ' / kk');
-    const p = document.getElementById('p-' + k); if (p) p.textContent = 'Viimeisin: ' + m.period;
+    const p = document.getElementById('p-' + k); if (p) p.textContent = 'Viimeisin: ' + m.period + (m.flash ? ' (ennakko)' : '');
   }
+  renderWatch();
   const upd = document.getElementById('upd');
   if (upd) upd.textContent = 'Data päivitetty ' + new Date(D.updated).toLocaleString('fi-FI', {
     timeZone: 'Europe/Helsinki', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-const FULL = D ? { ...D.weekly, wci: D.wci ? D.wci.values : [] } : {};
+function sparkSvg(arr) {
+  const v = (arr || []).filter(x => x != null); if (v.length < 2) return '';
+  const w = 90, h = 26, mn = Math.min(...v), mx = Math.max(...v), r = (mx - mn) || 1;
+  const pts = v.map((x, i) => (i / (v.length - 1) * w).toFixed(1) + ',' + (h - 2 - (x - mn) / r * (h - 4)).toFixed(1)).join(' ');
+  const col = v.at(-1) >= v[0] ? 'var(--up)' : 'var(--dn)';
+  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '"><polyline fill="none" stroke="' + col + '" stroke-width="1.5" points="' + pts + '"/></svg>';
+}
+function pctCell(x, l) {
+  if (x == null) return '<td data-l="' + l + '">–</td>';
+  return '<td data-l="' + l + '" class="' + (x >= 0 ? 'up' : 'dn') + '">' + (x >= 0 ? '+' : '−') + fmt(Math.abs(x), 1) + ' %</td>';
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function renderWatch() {
+  const W = D && D.watch; const body = document.getElementById('w-body'); if (!W || !body) return;
+  document.getElementById('w-summary').textContent = W.summary;
+  body.innerHTML = W.items.map(w => {
+    const dec = w.price >= 1000 ? 0 : 2;
+    return '<tr class="main"><td class="nm">' + esc(w.name) + (w.type === 'ETF' ? '<span class="tag">ETF</span>' : '') + '<span>' + esc(w.sym) + '</span></td>'
+      + '<td data-l="Hinta">' + fmt(w.price, dec) + ' ' + esc(w.currency || '') + '</td>'
+      + pctCell(w.day, 'Päivä') + pctCell(w.w1, '1 vk') + pctCell(w.m1, '1 kk') + pctCell(w.ytd, 'YTD') + pctCell(w.y1, '1 v') + pctCell(w.fromHigh, 'Huipusta')
+      + '<td class="sp">' + sparkSvg(w.spark) + '</td></tr>'
+      + '<tr class="txt"><td colspan="9">' + esc(w.text || '') + '</td></tr>';
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// KUVAAJAT – jokainen sarja on {d: päivämäärät, v: arvot}, ja piste piirretään oikealle päivälle.
+// Viivaa ei pyöristetä, joten käyrä kulkee täsmälleen datapisteiden kautta.
+// ════════════════════════════════════════════════════════════════
+const KKL = ['tammi','helmi','maalis','huhti','touko','kesä','heinä','elo','syys','loka','marras','joulu'];
+const fiDate = iso => { const [y, m, d] = iso.split('-'); return (+d) + '.' + (+m) + '.' + y; };
+const MACRO_KEYS = ['ism', 'cli', 'pmi_ez', 'pmi_us'];
+
+// Mistä sarja haetaan: 12 kk -kuvaajat käyttävät päivädataa, 10 v -kuvaajat viikkodataa.
+// Makro (kuukausi) ja WCI (viikko) ovat samat molemmissa.
+function getSeries(key, hist) {
+  if (!D) return null;
+  if (key === 'wci') return D.wci;
+  if (MACRO_KEYS.includes(key)) return D.hist[key];
+  return hist ? D.hist[key] : D.daily[key];
+}
+function cut(sr, days) {
+  if (!sr || !sr.d || !sr.d.length) return { d: [], v: [] };
+  const lim = new Date(sr.d.at(-1) + 'T12:00:00Z'); lim.setUTCDate(lim.getUTCDate() - days);
+  const from = lim.toISOString().slice(0, 10);
+  const i = Math.max(0, sr.d.findIndex(x => x >= from));
+  return { d: sr.d.slice(i), v: sr.v.slice(i) };
+}
+function build(def, days) {
+  const parts = def.series.map(x => cut(getSeries(x.key, def.hist), days));
+  const dates = [...new Set(parts.flatMap(p => p.d))].sort();   // kaikkien sarjojen päivät yhdellä akselilla
+  const ds = def.series.map((x, i) => {
+    const m = new Map(parts[i].d.map((d, j) => [d, parts[i].v[j]]));
+    return line(x.label, dates.map(d => (m.has(d) ? m.get(d) : null)), x.color, def.series.length === 1);
+  });
+  return [dates, ds];
+}
 
 // Chart.js defaults
 Chart.defaults.color = '#5a6480';
@@ -383,108 +513,116 @@ Chart.defaults.font.family = "'Space Mono', monospace";
 Chart.defaults.font.size = 10;
 
 const CHARTS = {};
-
 function line(label, data, color, fill) {
-  return { label, data, borderColor: color, backgroundColor: fill ? color+'22' : 'transparent', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.4, fill: fill||false, spanGaps: true };
+  return { label, data, borderColor: color, backgroundColor: fill ? color + '1f' : 'transparent', borderWidth: 1.6,
+           pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 6, tension: 0, fill: fill || false, spanGaps: true };
 }
-
-function makeChart(id, labels, datasets) {
-  const ctx = document.getElementById(id); if (!ctx) return;
-  CHARTS[id] = new Chart(ctx, {
+function tickLabel(iso, spanDays) {
+  const [y, m, d] = iso.split('-');
+  if (spanDays <= 100) return (+d) + '.' + (+m) + '.';
+  if (spanDays <= 800) return KKL[m - 1] + ' ' + y.slice(2);
+  return y;
+}
+function makeChart(def, labels, datasets) {
+  const ctx = document.getElementById(def.id); if (!ctx) return;
+  CHARTS[def.id] = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: true, aspectRatio: 5,
-      interaction: { mode:'index', intersect:false },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: datasets.length > 1, labels: { color:'#5a6480', font:{size:10} } },
-        tooltip: { backgroundColor:'#111520', borderColor:'#1e2535', borderWidth:1, titleColor:'#e8ecf4', bodyColor:'#5a6480', padding:10 }
+        legend: { display: datasets.length > 1, labels: { color: '#5a6480', font: { size: 10 }, boxWidth: 12 } },
+        tooltip: {
+          backgroundColor: '#111520', borderColor: '#1e2535', borderWidth: 1, titleColor: '#e8ecf4', bodyColor: '#c9cfdd', padding: 10,
+          callbacks: {
+            title: items => items.length ? (def.monthly ? (() => { const [y, m] = items[0].label.split('-'); return KKL[m - 1] + 'kuu ' + y; })() : fiDate(items[0].label)) : '',
+            label: it => it.raw == null ? null : ' ' + it.dataset.label + ': ' + fmt(it.raw, def.dec) + (def.unit ? ' ' + def.unit : ''),
+          }
+        }
       },
       scales: {
         x: {
-          grid:{color:'rgba(30,37,53,.9)'},
-          ticks:{
-            maxRotation:0,
-            callback: function(val, index) {
-              const label = this.getLabelForValue(val);
-              const n = this.chart.data.labels.length;
-              // Noin 6 tekstiä akselille pisteiden määrästä riippumatta
+          grid: { color: 'rgba(30,37,53,.9)' },
+          ticks: {
+            maxRotation: 0, autoSkip: false,
+            callback: function (val, index) {
+              const L = this.chart.data.labels, n = L.length; if (!n) return null;
+              const span = (new Date(L[n - 1]) - new Date(L[0])) / 864e5;
+              const cur = L[index], prev = index ? L[index - 1] : null;
+              if (span > 800) {          // vuodet tasavälein: ensimmäinen piste joka 1./2. vuodelta
+                const every = span > 2500 ? 2 : 1;
+                return prev && cur.slice(0, 4) !== prev.slice(0, 4) && (+cur.slice(0, 4)) % every === 0 ? cur.slice(0, 4) : null;
+              }
+              if (span > 100) {          // kuukaudet tasavälein: ensimmäinen piste joka 2./3. kuulta
+                const every = span > 300 ? 2 : 1;
+                return prev && cur.slice(5, 7) !== prev.slice(5, 7) && (+cur.slice(5, 7) - 1) % every === 0 ? tickLabel(cur, span) : null;
+              }
               const step = Math.max(1, Math.ceil(n / 6));
-              return index % step === 0 ? label : null;
+              return index % step === 0 ? tickLabel(cur, span) : null;
             }
           }
         },
-        y: { grid:{color:'rgba(30,37,53,.9)'}, ticks:{maxTicksLimit:4} }
+        y: { grid: { color: 'rgba(30,37,53,.9)' }, ticks: { maxTicksLimit: 5, callback: v => fmt(v, def.dec >= 2 && Math.abs(v) < 20 ? def.dec : 0) } }
       },
-      animation: { duration: 300 }
+      animation: { duration: 250 }
     }
   });
 }
-
-// Slice last N weeks from 52-week series
-function sliceN(key, days) {
-  const weeks = days <= 90 ? 13 : days <= 180 ? 26 : 52;
-  if (!D) return { data: [], labels: [] };
-  if (key === 'wci') {
-    const w = D.wci || { labels: [], values: [] };
-    return { data: w.values.slice(-weeks), labels: w.labels.slice(-weeks) };
-  }
-  if (key === 'ism' || key === 'cli') {   // kuukausidata
-    const m = D.macro[key] || { dates: [], values: [] };
-    const n = Math.round(days / 30) + 1;
-    return { data: m.values.slice(-n), labels: m.dates.slice(-n) };
-  }
-  return { data: (FULL[key] || []).slice(-weeks), labels: D.weekly.labels.slice(-weeks) };
-}
-
-// Chart definitions: id → function that builds datasets for given N days
-const DEFS = {
-  'ch-omxh':  n => { const s=sliceN('omxh',n);  return [s.labels, [line('OMXH25', s.data, '#00e5a0', true)]]; },
-  'ch-sp500': n => { const s=sliceN('sp500',n); return [s.labels, [line('S&P 500',s.data, '#4d8cff', true)]]; },
-  'ch-stoxx': n => { const s=sliceN('stoxx',n); return [s.labels, [line('STOXX',  s.data, '#a259ff', true)]]; },
-  'ch-oil':   n => { const w=sliceN('wti',n), b=sliceN('brent',n); return [w.labels, [line('WTI',w.data,'#ff6b35'), line('Brent',b.data,'#ffb347')]]; },
-  'ch-tnx':   n => { const s=sliceN('tnx',n);  return [s.labels, [line('10Y Yield',s.data,'#00e5a0',true)]]; },
-  'ch-vix':   n => { const s=sliceN('vix',n);  return [s.labels, [line('VIX',     s.data,'#ff4d6d',true)]]; },
-  'ch-gold':   n => { const s=sliceN('gold',n);   return [s.labels, [line('Kulta',   s.data,'#ffd700',true)]]; },
-  'ch-copper': n => { const s=sliceN('copper',n); return [s.labels, [line('Kupari',  s.data,'#b87333',true)]]; },
-  'ch-uspmi':  n => { const s=sliceN('ism',n);    return [s.labels, [line('ISM PMI', s.data,'#4d8cff',true)]]; },
-  'ch-gpmi':   n => { const s=sliceN('cli',n);    return [s.labels, [line('OECD CLI G20',s.data,'#a259ff',true)]]; },
-  'ch-wci':    n => { const s=sliceN('wci',n);    return [s.labels, [line('WCI',s.data,'#4d8cff',true)]]; },
-};
-
-const RANGES = [
-  { label: '3kk', days: 90 },
-  { label: '6kk', days: 180 },
-  { label: '12kk', days: 365 },
-];
-
-function setRange(chartId, rbId, subId, days, label, btnEl) {
-  // Update button states
-  document.querySelectorAll(`#${rbId} .rng`).forEach(b => b.classList.toggle('on', b.dataset.days == days));
-  // Update subtitle
-  const sub = document.getElementById(subId);
-  if (sub) sub.textContent = sub.dataset.base + ' · ' + label;
-  // Update chart data
-  const c = CHARTS[chartId]; if (!c) return;
-  const [lbls, datasets] = DEFS[chartId](days);
-  c.data.labels = lbls;
-  datasets.forEach((d, i) => { if (c.data.datasets[i]) c.data.datasets[i].data = d.data; });
-  c.update('active');
-}
-
-function buildRangeBtns(chartId, rbId, subId, subBase) {
-  const el = document.getElementById(rbId); if (!el) return;
-  const sub = document.getElementById(subId);
-  if (sub) sub.dataset.base = subBase;
-  RANGES.forEach(r => {
+function setupChart(def) {
+  const rb = document.getElementById(def.id.replace('ch-', 'rb-'));
+  const sub = document.getElementById(def.id.replace('ch-', 'sub-'));
+  const start = def.ranges.find(r => r.on) || def.ranges.at(-1);
+  const setSub = lab => { if (sub) sub.textContent = lab + (def.base ? ' · ' + def.base : ''); };
+  const [l, ds] = build(def, start.days);
+  makeChart(def, l, ds);
+  setSub(start.label);
+  if (!rb) return;
+  rb.innerHTML = '';
+  def.ranges.forEach(r => {
     const b = document.createElement('button');
-    b.className = 'rng' + (r.label === '12kk' ? ' on' : '');
+    b.className = 'rng' + (r === start ? ' on' : '');
     b.textContent = r.label;
-    b.dataset.days = r.days;
-    b.onclick = () => setRange(chartId, rbId, subId, r.days, r.label, el);
-    el.appendChild(b);
+    b.onclick = () => {
+      rb.querySelectorAll('.rng').forEach(x => x.classList.toggle('on', x === b));
+      setSub(r.label);
+      const c = CHARTS[def.id]; if (!c) return;
+      const [l2, ds2] = build(def, r.days);
+      c.data.labels = l2; ds2.forEach((d, i) => { c.data.datasets[i].data = d.data; });
+      c.update();
+    };
+    rb.appendChild(b);
   });
 }
+
+const R_MARKET = [{ label: '1kk', days: 31 }, { label: '3kk', days: 92 }, { label: '6kk', days: 183 }, { label: '12kk', days: 366, on: true }];
+const R_MACRO  = [{ label: '1v', days: 366, on: true }, { label: '3v', days: 1096 }, { label: '10v', days: 3653 }];
+const R_WCI    = [{ label: '3kk', days: 92 }, { label: '6kk', days: 183 }, { label: '12kk', days: 366, on: true }];
+const R_HIST   = [{ label: '1v', days: 366 }, { label: '3v', days: 1096 }, { label: '5v', days: 1827 }, { label: '10v', days: 3653, on: true }];
+const S = (key, label, color) => ({ key, label, color });
+
+const MAIN_CHARTS = [
+  { id: 'ch-omxh',   unit: '',        dec: 0, base: 'EUR · päivän päätöskurssi', ranges: R_MARKET, series: [S('omxh', 'OMXH25', '#00e5a0')] },
+  { id: 'ch-sp500',  unit: '',        dec: 0, base: 'USD · päivän päätöskurssi', ranges: R_MARKET, series: [S('sp500', 'S&P 500', '#4d8cff')] },
+  { id: 'ch-stoxx',  unit: '',        dec: 2, base: 'EUR · päivän päätöskurssi', ranges: R_MARKET, series: [S('stoxx', 'STOXX 600', '#a259ff')] },
+  { id: 'ch-oil',    unit: 'USD',     dec: 2, base: 'USD/bbl',  ranges: R_MARKET, series: [S('wti', 'WTI', '#ff6b35'), S('brent', 'Brent', '#ffb347')] },
+  { id: 'ch-tnx',    unit: '%',       dec: 2, base: '%',        ranges: R_MARKET, series: [S('tnx', 'US 10Y', '#00e5a0')] },
+  { id: 'ch-vix',    unit: '',        dec: 2, base: 'indeksi',  ranges: R_MARKET, series: [S('vix', 'VIX', '#ff4d6d')] },
+  { id: 'ch-gold',   unit: 'USD',     dec: 0, base: 'USD/oz',   ranges: R_MARKET, series: [S('gold', 'Kulta', '#ffd700')] },
+  { id: 'ch-copper', unit: 'USD',     dec: 3, base: 'USD/lb',   ranges: R_MARKET, series: [S('copper', 'Kupari', '#b87333')] },
+  { id: 'ch-wci',    unit: 'USD',     dec: 0, base: 'USD/40ft · viikoittain', ranges: R_WCI, series: [S('wci', 'WCI', '#4d8cff')] },
+  { id: 'ch-uspmi',  unit: '', dec: 1, monthly: true, base: '50 = raja · kuukausittain', ranges: R_MACRO, series: [S('ism', 'ISM PMI', '#4d8cff')] },
+  { id: 'ch-gpmi',   unit: '', dec: 2, monthly: true, base: '100 = trendi · kuukausittain', ranges: R_MACRO, series: [S('cli', 'OECD CLI G20', '#a259ff')] },
+  { id: 'ch-spg',    unit: '', dec: 1, monthly: true, base: '50 = raja · kuukausittain', ranges: R_MACRO, series: [S('pmi_ez', 'Euroalue', '#00e5a0'), S('pmi_us', 'USA', '#4d8cff')] },
+];
+const HIST_CHARTS = [
+  ['omxh', 'EUR', 0, '#00e5a0'], ['sp500', 'USD', 0, '#4d8cff'], ['stoxx', 'EUR', 2, '#a259ff'], ['wti', 'USD/bbl', 2, '#ff6b35'],
+  ['gold', 'USD/oz', 0, '#ffd700'], ['tnx', '%', 2, '#00e5a0'], ['vix', '', 2, '#ff4d6d'], ['copper', 'USD/lb', 3, '#b87333'],
+].map(([key, base, dec, color]) => ({ id: 'ch-h-' + key, hist: true, unit: base.split('/')[0], dec, base: (base ? base + ' · ' : '') + 'viikon päätöskurssi', ranges: R_HIST, series: [S(key, key.toUpperCase(), color)] }))
+ .concat([
+  { id: 'ch-h-uspmi', hist: true, monthly: true, unit: '', dec: 1, base: '50 = raja', ranges: R_HIST, series: [S('ism', 'ISM PMI', '#4d8cff')] },
+  { id: 'ch-h-gpmi',  hist: true, monthly: true, unit: '', dec: 2, base: '100 = trendi', ranges: R_HIST, series: [S('cli', 'OECD CLI G20', '#a259ff')] },
+ ]);
 
 // ── INFO POPUP ─────────────────────────────────────────────────
 const INFO = {
@@ -565,6 +703,13 @@ const INFO = {
     desc: 'Institute for Supply Managementin (ISM) kuukausittainen kysely noin 400 teollisuusyrityksen ostopäälliköille. Indeksi yhdistää viisi osa-aluetta: uudet tilaukset, tuotanto, työllisyys, toimittajien toimitusajat ja varastot. Yli 50 = teollisuus kasvaa, alle 50 = supistuu. Koska hankinnat tehdään ennen tuotantoa, PMI on yksi tärkeimmistä ennakoivista suhdannemittareista ja liikuttaa markkinoita julkaisupäivänä. Esimerkiksi huhtikuussa 2020 koronan aikana indeksi putosi 41,5:een.',
     meta: ['Raja: 50 = kasvu/supistuminen', 'Julkaisija: ISM', 'Lähde: ISM:n tiedotteet (PR Newswire)', 'Julkaisu: Kuun 1. arkipäivä']
   },
+  spg: {
+    tag: 'Makroindikaattori · Euroalue & USA',
+    name: 'S&P Global Manufacturing PMI',
+    fi: 'Teollisuuden ostopäällikköindeksit, euroalue ja USA',
+    desc: 'S&P Global (aiemmin IHS Markit) laskee ostopäällikköindeksit yli 40 maalle samalla menetelmällä. Teollisuus-PMI on painotettu keskiarvo viidestä osa-alueesta: uudet tilaukset (30 %), tuotanto (25 %), työllisyys (20 %), toimitusajat (15 %) ja varastot (10 %). Yli 50 = kasvu, alle 50 = supistuminen. Ennakkoluku (flash) julkaistaan noin viikkoa ennen kuun loppua ja lopullinen luku seuraavan kuun ensimmäisenä arkipäivänä. Euroalueen PMI on Suomen kannalta tärkeä, koska se kuvaa suurimpien vientimarkkinoiden kysyntää.',
+    meta: ['Raja: 50 = kasvu/supistuminen', 'Julkaisija: S&P Global', 'Lähde: tiedotteet (pmi.spglobal.com)', 'Julkaisu: Kuukausittain']
+  },
   gpmi: {
     tag: 'Makroindikaattori · Globaali',
     name: 'OECD Composite Leading Indicator (CLI), G20',
@@ -605,116 +750,11 @@ function showPanel(id, el) {
   }
 }
 
-// 10 vuoden kuukausidata: oikeat kuukauden päätösarvot (data.js: Yahoo Finance, FRED, OECD).
-// Puuttuvat kuukaudet ovat null ja kuvaaja yhdistää niiden yli (spanGaps).
-const HIST_FULL = D ? D.hist : {};
+function buildHistCharts() { HIST_CHARTS.forEach(setupChart); }
 
-const HIST_RANGES = [
-  { label: '3v',  months: 36 },
-  { label: '5v',  months: 60 },
-  { label: '10v', months: 120 },
-];
-
-function sliceHist(key, months) {
-  const data = (HIST_FULL[key] || []).slice(-months);
-  const labels = (D ? D.hist.labels : []).slice(-months);
-  return { data, labels };
-}
-
-function makeHistChart(id, labels, datasets) {
-  const ctx = document.getElementById(id); if (!ctx) return;
-  CHARTS[id] = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 5,
-      interaction: { mode:'index', intersect:false },
-      plugins: {
-        legend: { display: false },
-        tooltip: { backgroundColor:'#111520', borderColor:'#1e2535', borderWidth:1, titleColor:'#e8ecf4', bodyColor:'#5a6480', padding:10 }
-      },
-      scales: {
-        x: {
-          grid: { color:'rgba(30,37,53,.9)' },
-          ticks: {
-            maxRotation: 0,
-            callback: function(val, index) {
-              const label = this.getLabelForValue(val);
-              const n = this.chart.data.labels.length;
-              // Näytä vain tammikuut (jan) tai joka toinen vuosi jos 10v
-              if (n <= 36) return label.startsWith('tammi') || label.startsWith('jan') || label.includes('01.') ? label : (index % 6 === 0 ? label : null);
-              if (n <= 60) return index % 12 === 0 ? label : null;
-              return index % 24 === 0 ? label : null;
-            }
-          }
-        },
-        y: { grid:{ color:'rgba(30,37,53,.9)' }, ticks:{ maxTicksLimit:4 } }
-      },
-      animation: { duration: 300 }
-    }
-  });
-}
-
-function setHistRange(key, chartId, rbId, subId, months, rangeLabel) {
-  document.querySelectorAll(`#${rbId} .rng`).forEach(b => b.classList.toggle('on', b.dataset.months == months));
-  const sub = document.getElementById(subId);
-  if (sub) sub.textContent = sub.dataset.base + ' · ' + rangeLabel;
-  const c = CHARTS[chartId]; if (!c) return;
-  const s = sliceHist(key, months);
-  c.data.labels = s.labels;
-  c.data.datasets[0].data = s.data;
-  c.update('active');
-}
-
-function buildHistRangeBtns(key, chartId, rbId, subId, subBase) {
-  const el = document.getElementById(rbId); if (!el) return;
-  const sub = document.getElementById(subId);
-  if (sub) sub.dataset.base = subBase;
-  HIST_RANGES.forEach(r => {
-    const b = document.createElement('button');
-    b.className = 'rng' + (r.label === '10v' ? ' on' : '');
-    b.textContent = r.label;
-    b.dataset.months = r.months;
-    b.onclick = () => setHistRange(key, chartId, rbId, subId, r.months, r.label);
-    el.appendChild(b);
-  });
-}
-
-function buildHistCharts() {
-  const defs = [
-    { key:'omxh',  id:'ch-h-omxh',  rb:'rb-h-omxh',  sub:'sub-h-omxh',  base:'EUR',    color:'#00e5a0' },
-    { key:'sp500', id:'ch-h-sp500', rb:'rb-h-sp500', sub:'sub-h-sp500', base:'USD',    color:'#4d8cff' },
-    { key:'stoxx', id:'ch-h-stoxx', rb:'rb-h-stoxx', sub:'sub-h-stoxx', base:'EUR',    color:'#a259ff' },
-    { key:'wti',   id:'ch-h-wti',   rb:'rb-h-wti',   sub:'sub-h-wti',   base:'USD/bbl',color:'#ff6b35' },
-    { key:'gold',  id:'ch-h-gold',  rb:'rb-h-gold',  sub:'sub-h-gold',  base:'USD/oz', color:'#ffd700' },
-    { key:'tnx',   id:'ch-h-tnx',   rb:'rb-h-tnx',   sub:'sub-h-tnx',   base:'%',      color:'#00e5a0' },
-    { key:'vix',    id:'ch-h-vix',    rb:'rb-h-vix',    sub:'sub-h-vix',    base:'',        color:'#ff4d6d' },
-    { key:'copper', id:'ch-h-copper', rb:'rb-h-copper', sub:'sub-h-copper', base:'USD/lb', color:'#b87333' },
-    { key:'ism',    id:'ch-h-uspmi',  rb:'rb-h-uspmi',  sub:'sub-h-uspmi',  base:'50 = raja',       color:'#4d8cff' },
-    { key:'cli',    id:'ch-h-gpmi',   rb:'rb-h-gpmi',   sub:'sub-h-gpmi',   base:'100 = trendi',       color:'#a259ff' },
-  ];
-  defs.forEach(({ key, id, rb, sub, base, color }) => {
-    const s = sliceHist(key, 120);
-    makeHistChart(id, s.labels, [line(key, s.data, color, true)]);
-    buildHistRangeBtns(key, id, rb, sub, base);
-  });
-}
-// Rakenna kaikki 12 kk -kuvaajat ja täytä kortit data.js:stä
-Object.keys(DEFS).forEach(id => { const [l, ds] = DEFS[id](365); makeChart(id, l, ds); });
+// Rakenna 12 kk -kuvaajat ja täytä kortit data.js:stä (10 v -kuvaajat rakennetaan, kun välilehti avataan)
+MAIN_CHARTS.forEach(setupChart);
 renderCards();
-
-// Build range buttons
-buildRangeBtns('ch-omxh',   'rb-omxh',   'sub-omxh',   'EUR');
-buildRangeBtns('ch-sp500',  'rb-sp500',  'sub-sp500',  'USD');
-buildRangeBtns('ch-stoxx',  'rb-stoxx',  'sub-stoxx',  'EUR');
-buildRangeBtns('ch-oil',    'rb-oil',    'sub-oil',    'USD/bbl');
-buildRangeBtns('ch-tnx',    'rb-tnx',    'sub-tnx',    '%');
-buildRangeBtns('ch-vix',    'rb-vix',    'sub-vix',    '');
-buildRangeBtns('ch-gold',   'rb-gold',   'sub-gold',   'USD/oz');
-buildRangeBtns('ch-copper', 'rb-copper', 'sub-copper', 'USD/lb');
-buildRangeBtns('ch-uspmi',  'rb-uspmi',  'sub-uspmi',  '50 = raja');
-buildRangeBtns('ch-gpmi',   'rb-gpmi',   'sub-gpmi',   '');
-buildRangeBtns('ch-wci',    'rb-wci',    'sub-wci',    'USD/40ft');
 </script>
 </body>
 </html>
