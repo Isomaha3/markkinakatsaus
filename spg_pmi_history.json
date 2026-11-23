@@ -1,10 +1,26 @@
 {
  "ez": [
-  { "month": "2026-10", "value": 52.7, "flash": false },
-  { "month": "2026-11", "value": 52.9, "flash": true }
+  {
+   "month": "2026-10",
+   "value": 52.7,
+   "flash": false
+  },
+  {
+   "month": "2026-11",
+   "value": 52.9,
+   "flash": true
+  }
  ],
  "us": [
-  { "month": "2026-10", "value": 54.9, "flash": false },
-  { "month": "2026-11", "value": 54.5, "flash": true }
+  {
+   "month": "2026-10",
+   "value": 54.9,
+   "flash": false
+  },
+  {
+   "month": "2026-11",
+   "value": 54.5,
+   "flash": true
+  }
  ]
 }
