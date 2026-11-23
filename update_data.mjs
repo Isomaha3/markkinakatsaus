@@ -148,12 +148,25 @@ const MONTH_EN = { January: 1, February: 2, March: 3, April: 4, May: 5, June: 6,
 let ismHist = [];
 try { ismHist = JSON.parse(fs.readFileSync('ism_history.json', 'utf8')); } catch { /* tyhjä */ }
 try {
-  const r = await fetch('https://www.prnewswire.com/news/institute-for-supply-management/?page=1&pagesize=50',
-    { headers: UA, signal: AbortSignal.timeout(30000) });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const html = await r.text();
+  // 1) PR Newswiren ISM-sivu. Se estää osan palvelinosoitteista (esim. GitHub Actions, HTTP 403),
+  // 2) joten varalla Google Newsin RSS-haku, jossa samat tiedotteet näkyvät otsikolla
+  //    "... - PR Newswire". Varalähteestä hyväksytään vain PR Newswiren otsikot.
+  let titles = [];
+  try {
+    const r = await fetch('https://www.prnewswire.com/news/institute-for-supply-management/?page=1&pagesize=50',
+      { headers: UA, signal: AbortSignal.timeout(30000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    titles = [...(await r.text()).matchAll(/title="([^"]*)"/g)].map(m => m[1]);
+  } catch (e) { console.log(`  ISM: PR Newswire ${e.message}, kokeillaan Google Newsia`); }
+  if (!titles.some(t => /Manufacturing PMI/.test(t))) {
+    const r = await fetch('https://news.google.com/rss/search?q=%22Manufacturing+PMI%22+ISM+Report+On+Business&hl=en-US&gl=US&ceid=US:en',
+      { headers: UA, signal: AbortSignal.timeout(30000) });
+    if (!r.ok) throw new Error(`Google News HTTP ${r.status}`);
+    titles = [...(await r.text()).matchAll(/<title>([^<]*)<\/title>/g)].map(m => m[1].replace(/&amp;/g, '&'))
+      .filter(t => / - PR Newswire$/.test(t)).map(t => t.replace(/ - PR Newswire$/, ''));
+  }
   let found = 0, added = 0;
-  for (const [, title] of html.matchAll(/title="([^"]*)"/g)) {
+  for (const title of titles) {
     if (!/Manufacturing/.test(title) || /Non-Manufacturing|Services|Hospital|Semiannual|Forecast/i.test(title)) continue;
     const v = title.match(/PMI®? (?:at|registers|registered) ([\d.]+)%/);
     const m = title.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December) (\d{4})\b/);
