@@ -59,7 +59,7 @@ h2 { font-family: 'Space Mono', monospace; font-size: .7rem; letter-spacing: .15
 .chartbox .sub { font-size: .68rem; color: var(--mut); margin-bottom: 1rem; }
 .expl { font-size: .78rem; line-height: 1.55; color: var(--txt); opacity: .85; margin-top: .9rem; padding-top: .8rem; border-top: 1px solid var(--brd); }
 .expl b { color: var(--acc); font-weight: 700; }
-.chartbox canvas { display: block; width: 100% !important; max-height: 140px; }
+.chartbox canvas { display: block; width: 100% !important; max-height: 160px; }
 .full { grid-column: 1 / -1; }
 .chdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: .2rem; }
 .chdr h3 { margin-bottom: 0; }
@@ -275,6 +275,38 @@ nav { overflow-x: auto; }
     <div class="lbl">VIX – Pelkoindeksi <button class="info-btn" onclick="showInfo('vix')">?</button></div><div class="sym">^VIX</div>
     <div class="val" id="v-vix">–</div><div class="chg" id="d-vix"></div>
     <div class="dsc">S&amp;P 500 volatiliteetti</div>
+  </div>
+</div>
+
+<h2>Korot – 10 vuoden valtionlainat</h2>
+<div class="cards">
+  <div class="card blue">
+    <div class="lbl">USA 10Y <button class="info-btn" onclick="showInfo('tnx')">?</button></div><div class="sym">^TNX · päivittäin</div>
+    <div class="val" id="v-y_us">–</div><div class="chg" id="d-y_us"></div>
+    <div class="dsc" id="p-y_us">%</div>
+  </div>
+  <div class="card blue">
+    <div class="lbl">Saksa 10Y <button class="info-btn" onclick="showInfo('yields')">?</button></div><div class="sym">Bund · päivittäin</div>
+    <div class="val" id="v-y_de">–</div><div class="chg" id="d-y_de"></div>
+    <div class="dsc" id="p-y_de">%</div>
+  </div>
+  <div class="card blue">
+    <div class="lbl">Suomi 10Y <button class="info-btn" onclick="showInfo('yields')">?</button></div><div class="sym">EKP · kuukausikeskiarvo</div>
+    <div class="val" id="v-y_fi">–</div><div class="chg" id="d-y_fi"></div>
+    <div class="dsc" id="p-y_fi">%</div>
+  </div>
+  <div class="card blue">
+    <div class="lbl">Ranska 10Y <button class="info-btn" onclick="showInfo('yields')">?</button></div><div class="sym">EKP · kuukausikeskiarvo</div>
+    <div class="val" id="v-y_fr">–</div><div class="chg" id="d-y_fr"></div>
+    <div class="dsc" id="p-y_fr">%</div>
+  </div>
+</div>
+<div class="charts">
+  <div class="chartbox full">
+    <div class="chdr"><h3>10 vuoden korot: USA, Saksa, Suomi, Ranska <button class="info-btn" onclick="showInfo('yields')">?</button></h3><div class="rngs" id="rb-yields"></div></div>
+    <div class="sub" id="sub-yields">1v · %</div>
+    <canvas id="ch-yields" height="120"></canvas>
+    <p class="expl"><b>Miten tulkitaan?</b> Valtionlainan korko kertoo, millä hinnalla valtio saa lainaa 10 vuodeksi. Saksan korko on euroalueen vertailukohta, koska Saksaa pidetään turvallisimpana lainanottajana. Suomen ja Ranskan <i>ero Saksaan</i> (riskilisä) kertoo, kuinka paljon enemmän sijoittajat vaativat niiden lainoista. Kasvava ero kertoo kasvavasta huolesta maan taloudesta. Korot vaikuttavat myös asuntolainojen ja yrityslainojen hintaan. Kuvaajassa kaikki maat ovat kuukausikeskiarvoina, jotta ne ovat vertailukelpoisia.</p>
   </div>
 </div>
 
@@ -518,6 +550,7 @@ function renderCards() {
   renderWatch();
   renderVix();
   renderMovers('day');
+  renderYields();
   const upd = document.getElementById('upd');
   if (upd) upd.textContent = 'Data päivitetty ' + new Date(D.updated).toLocaleString('fi-FI', {
     timeZone: 'Europe/Helsinki', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -584,6 +617,29 @@ function renderMovers(mode) {
   rb.querySelectorAll('.rng').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
 }
 
+// Korot-kortit: muutos prosenttiyksikköinä, Suomelle ja Ranskalle ero Saksaan
+function renderYields() {
+  const pp = x => (x >= 0 ? '+' : '−') + fmt(Math.abs(x), 2) + ' %-yks.';
+  const setY = (k, val, chg, chgTxt, desc) => {
+    document.getElementById('v-' + k).textContent = fmt(val, 2) + ' %';
+    const d = document.getElementById('d-' + k);
+    if (chg != null) { d.textContent = (chg >= 0 ? '▲ ' : '▼ ') + pp(chg) + chgTxt; d.className = 'chg ' + (chg >= 0 ? 'dn' : 'up'); }
+    document.getElementById('p-' + k).textContent = desc;
+  };
+  const t = D.daily && D.daily.tnx;
+  if (t && t.v.length > 1) setY('y_us', t.v.at(-1), t.v.at(-1) - t.v.at(-2), ' päivässä', 'Päätös ' + fiDate(t.d.at(-1)));
+  const de = D.cards.de10;
+  if (de) setY('y_de', de.value, de.value - de.prev, ' päivässä', 'Päätös ' + fiDate(de.date));
+  const Y = D.yields || {};
+  for (const c of ['fi', 'fr']) {
+    const y = Y[c]; if (!y || y.v.length < 2) continue;
+    const m = y.d.at(-1), di = Y.de ? Y.de.d.indexOf(m) : -1;
+    const [yy, mm] = m.split('-');
+    const spread = di >= 0 ? ' · ero Saksaan ' + pp(y.v.at(-1) - Y.de.v[di]) : '';
+    setY('y_' + c, y.v.at(-1), y.v.at(-1) - y.v.at(-2), ' kuussa', KKL[mm - 1] + 'kuu ' + yy + spread);
+  }
+}
+
 function sparkSvg(arr) {
   const v = (arr || []).filter(x => x != null); if (v.length < 2) return '';
   const w = 90, h = 26, mn = Math.min(...v), mx = Math.max(...v), r = (mx - mn) || 1;
@@ -623,6 +679,7 @@ function getSeries(key, hist) {
   if (!D) return null;
   if (key === 'wci') return D.wci;
   if (MACRO_KEYS.includes(key)) return D.hist[key];
+  if (key.startsWith('y_')) return D.yields && D.yields[key.slice(2)];
   return hist ? D.hist[key] : D.daily[key];
 }
 function cut(sr, days) {
@@ -633,7 +690,7 @@ function cut(sr, days) {
   return { d: sr.d.slice(i), v: sr.v.slice(i) };
 }
 function build(def, days) {
-  const parts = def.series.map(x => cut(getSeries(x.key, def.hist), days));
+  const parts = def.series.map(x => cut(getSeries(x.key, def.hist || days > 400), days));
   const dates = [...new Set(parts.flatMap(p => p.d))].sort();   // kaikkien sarjojen päivät yhdellä akselilla
   const ds = def.series.map((x, i) => {
     const m = new Map(parts[i].d.map((d, j) => [d, parts[i].v[j]]));
@@ -665,7 +722,7 @@ function makeChart(def, labels, datasets) {
     type: 'line',
     data: { labels, datasets },
     options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 5,
+      responsive: true, maintainAspectRatio: true, aspectRatio: window.innerWidth < 700 ? 2.4 : 5,   // puhelimella korkeampi
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: datasets.length > 1, labels: { color: '#5a6480', font: { size: 10 }, boxWidth: 12 } },
@@ -709,10 +766,14 @@ function setupChart(def) {
   const rb = document.getElementById(def.id.replace('ch-', 'rb-'));
   const sub = document.getElementById(def.id.replace('ch-', 'sub-'));
   const start = def.ranges.find(r => r.on) || def.ranges.at(-1);
-  const setSub = lab => { if (sub) sub.textContent = lab + (def.base ? ' · ' + def.base : ''); };
+  const setSub = (lab, days) => {
+    if (!sub) return;
+    const base = (def.base || '').replace('päivän päätöskurssi', !def.hist && days > 400 ? 'viikon päätöskurssi' : 'päivän päätöskurssi');
+    sub.textContent = lab + (base ? ' · ' + base : '');
+  };
   const [l, ds] = build(def, start.days);
   makeChart(def, l, ds);
-  setSub(start.label);
+  setSub(start.label, start.days);
   if (!rb) return;
   rb.innerHTML = '';
   def.ranges.forEach(r => {
@@ -721,7 +782,7 @@ function setupChart(def) {
     b.textContent = r.label;
     b.onclick = () => {
       rb.querySelectorAll('.rng').forEach(x => x.classList.toggle('on', x === b));
-      setSub(r.label);
+      setSub(r.label, r.days);
       const c = CHARTS[def.id]; if (!c) return;
       const [l2, ds2] = build(def, r.days);
       c.data.labels = l2; ds2.forEach((d, i) => { c.data.datasets[i].data = d.data; });
@@ -731,7 +792,7 @@ function setupChart(def) {
   });
 }
 
-const R_MARKET = [{ label: '1kk', days: 31 }, { label: '3kk', days: 92 }, { label: '6kk', days: 183 }, { label: '12kk', days: 366, on: true }];
+const R_MARKET = [{ label: '1kk', days: 31 }, { label: '3kk', days: 92 }, { label: '6kk', days: 183 }, { label: '12kk', days: 366, on: true }, { label: '3v', days: 1096 }];
 const R_MACRO  = [{ label: '1v', days: 366, on: true }, { label: '3v', days: 1096 }, { label: '10v', days: 3653 }];
 const R_WCI    = [{ label: '3kk', days: 92 }, { label: '6kk', days: 183 }, { label: '12kk', days: 366, on: true }];
 const R_HIST   = [{ label: '1v', days: 366 }, { label: '3v', days: 1096 }, { label: '5v', days: 1827 }, { label: '10v', days: 3653, on: true }];
@@ -747,6 +808,8 @@ const MAIN_CHARTS = [
   { id: 'ch-gold',   unit: 'USD',     dec: 0, base: 'USD/oz',   ranges: R_MARKET, series: [S('gold', 'Kulta', '#ffd700')] },
   { id: 'ch-copper', unit: 'USD',     dec: 3, base: 'USD/lb',   ranges: R_MARKET, series: [S('copper', 'Kupari', '#b87333')] },
   { id: 'ch-btc',    unit: 'USD',     dec: 0, base: 'USD · päivän päätöskurssi', ranges: R_MARKET, series: [S('btc', 'Bitcoin', '#f7931a')] },
+  { id: 'ch-yields', unit: '%', dec: 2, monthly: true, base: '% · kuukausikeskiarvo', ranges: R_MACRO,
+    series: [S('y_us', 'USA', '#4d8cff'), S('y_de', 'Saksa', '#e8ecf4'), S('y_fi', 'Suomi', '#00e5a0'), S('y_fr', 'Ranska', '#ff6b35')] },
   { id: 'ch-wci',    unit: 'USD',     dec: 0, base: 'USD/40ft · viikoittain', ranges: R_WCI, series: [S('wci', 'WCI', '#4d8cff')] },
   { id: 'ch-uspmi',  unit: '', dec: 1, monthly: true, base: '50 = raja · kuukausittain', ranges: R_MACRO, series: [S('ism', 'ISM PMI', '#4d8cff')] },
   { id: 'ch-gpmi',   unit: '', dec: 2, monthly: true, base: '100 = trendi · kuukausittain', ranges: R_MACRO, series: [S('cli', 'OECD CLI G20', '#a259ff')] },
@@ -853,6 +916,13 @@ const INFO = {
     fi: 'Teollisuuden ostopäällikköindeksit, euroalue ja USA',
     desc: 'S&P Global (aiemmin IHS Markit) laskee ostopäällikköindeksit yli 40 maalle samalla menetelmällä. Teollisuus-PMI on painotettu keskiarvo viidestä osa-alueesta: uudet tilaukset (30 %), tuotanto (25 %), työllisyys (20 %), toimitusajat (15 %) ja varastot (10 %). Yli 50 = kasvu, alle 50 = supistuminen. Ennakkoluku (flash) julkaistaan noin viikkoa ennen kuun loppua ja lopullinen luku seuraavan kuun ensimmäisenä arkipäivänä. Euroalueen PMI on Suomen kannalta tärkeä, koska se kuvaa suurimpien vientimarkkinoiden kysyntää.',
     meta: ['Raja: 50 = kasvu/supistuminen', 'Julkaisija: S&P Global', 'Lähde: tiedotteet (pmi.spglobal.com)', 'Julkaisu: Kuukausittain']
+  },
+  yields: {
+    tag: 'Korkomarkkina · Euroalue',
+    name: '10 vuoden valtionlainojen korot',
+    fi: 'Saksan, Suomen ja Ranskan 10 vuoden lainojen tuotto',
+    desc: 'Valtionlainan korko (tuotto) on se vuotuinen tuotto, jonka sijoittaja saa ostamalla 10 vuoden valtionlainan markkinahintaan. Saksan Bund on euroalueen turvasatama ja vertailukorko. Suomen ja Ranskan korkojen ero Saksaan (spread) mittaa maakohtaista riskiä: ero kasvaa, kun sijoittajat huolestuvat maan velasta tai poliittisesta tilanteesta. Saksan luku on päivittäinen (Saksan keskuspankki). Suomen ja Ranskan luvut ovat EKP:n virallisia kuukausikeskiarvoja, sillä päivittäistä avointa dataa ei ole saatavilla.',
+    meta: ['Yksikkö: % / vuosi', 'Lähde: EKP (IRS), Bundesbank', 'Suomi & Ranska: kuukausittain', 'Saksa: päivittäin']
   },
   gpmi: {
     tag: 'Makroindikaattori · Globaali',
