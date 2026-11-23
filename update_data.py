@@ -2,9 +2,11 @@ import yfinance as yf
 import requests
 import json
 import re
+import math
 from datetime import datetime, timedelta
 
 FRED_KEY = '3108436ca593495294aa12a66695b9e8'
+KUUKAUDET = ['tam','hel','maa','huh','tou','kes','hei','elo','syy','lok','mar','jou']
 FRED_BASE = 'https://api.stlouisfed.org/fred/series/observations'
 
 def get_weekly_closes(symbol, weeks=52):
@@ -12,7 +14,9 @@ def get_weekly_closes(symbol, weeks=52):
     try:
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period="1y", interval="1wk")
-        closes = [round(float(x), 2) for x in hist['Close'].tail(weeks).tolist()]
+        # Pudota puuttuvat arvot (NaN), muuten index.html:aan kirjoittuu 'nan' ja sivun JavaScript kaatuu
+        closes = [round(float(x), 2) for x in hist['Close'].tail(weeks).tolist()
+                  if x is not None and not math.isnan(float(x))]
         return closes if len(closes) >= 10 else None
     except Exception as e:
         print(f"Yahoo virhe {symbol}: {e}")
@@ -27,7 +31,9 @@ def get_fred(series_id, limit=13):
         obs = [o for o in d['observations'] if o['value'] != '.']
         obs.reverse()  # vanhimmasta uusimpaan
         values = [round(float(o['value']), 2) for o in obs]
-        dates  = [datetime.strptime(o['date'], '%Y-%m-%d').strftime("%-m'%y") for o in obs]
+        # Muoto 'tam 26' kuten sivulla muutenkin. Aiempi muoto 1'23 sisälsi heittomerkin,
+        # joka rikkoi JavaScriptin merkkijonon ('1'23') ja kaatoi koko sivun skriptin.
+        dates  = [f"{KUUKAUDET[int(o['date'][5:7]) - 1]} {o['date'][2:4]}" for o in obs]
         return {'values': values, 'dates': dates, 'latest': values[-1], 'prev': values[-2]}
     except Exception as e:
         print(f"FRED virhe {series_id}: {e}")
@@ -117,7 +123,8 @@ replacements = {
 for key, data in replacements.items():
     if data and len(data) >= 10:
         new_list = format_list(data)
-        pattern = rf'(\s+{key}:\s*)\[[\d.,\s]+\]'
+        # [^\]]* osuu myös listaan, jossa on null/nan, joten rikkinäinen lista korjautuu seuraavalla ajolla
+        pattern = rf'(\s+{key}:\s*)\[[^\]]*\]'
         new_content = re.sub(pattern, rf'\g<1>{new_list}', content)
         if new_content != content:
             content = new_content
@@ -178,24 +185,23 @@ if gcli:
     print(f"Päivitetty: FRED_GCLI ({gcli['latest']})")
 
 # Päivitä WCI kovakoodattu arvo
+# Aiemmat kolme regexiä osuivat väärään kohtaan: hinta kirjoittui muutoskenttään (d-wci)
+# ja varsinainen arvo (v-wci) jäi päivittämättä. Nyt päivitetään vain loadWCI():n vEl-rivi
+# ja kommentin päivämäärä, ja muutoskenttään merkitään päivityspäivä.
 if wci_price:
-    content = re.sub(
-        r"(vEl\) vEl\.textContent = ')[^']+(';\s*//\s*WCI)",
-        rf"\g<1>{wci_price:,}\g<2>",
-        content
-    )
-    # Yksinkertaisempi haku
-    content = re.sub(
-        r"(v-wci[^}]*textContent = ')[^']+(')",
-        rf"\g<1>{wci_price:,}\g<2>",
+    hinta = f"{wci_price:,}".replace(',', ' ')
+    content, n = re.subn(
+        r"(function loadWCI\(\) \{[^}]*?if \(vEl\) vEl\.textContent = ')[^']*(')",
+        rf"\g<1>{hinta}\g<2>",
         content
     )
     content = re.sub(
-        r"(if \(vEl\) vEl\.textContent = ')[^']+(?=';\s*\n\s*if \(dEl\).*Drewry)",
-        rf"\g<1>{wci_price:,}",
+        r"(function loadWCI\(\) \{[^}]*?if \(dEl\) \{ dEl\.textContent = ')[^']*('; dEl\.className = ')[^']*(')",
+        rf"\g<1>päiv. {datetime.now().strftime('%-d.%-m.')}\g<2>chg\g<3>",
         content
     )
-    print(f"Päivitetty: WCI ({wci_price})")
+    content = re.sub(r'// WCI kovakoodattu — Drewry [\d.]+', f'// WCI kovakoodattu — Drewry {today}', content)
+    print(f"Päivitetty: WCI ({wci_price})" if n else "EI LÖYDY: WCI")
 
 # Tallenna
 with open('index.html', 'w', encoding='utf-8') as f:
