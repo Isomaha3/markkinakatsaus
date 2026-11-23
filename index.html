@@ -72,6 +72,22 @@ nav a { font-family: 'Space Mono', monospace; font-size: .68rem; letter-spacing:
 nav a:hover { color: var(--txt); }
 nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
 .panel { display: none; }
+/* VIX-NOSTO */
+.vixhero { display: grid; grid-template-columns: auto 1fr; gap: 1.2rem 2.5rem; align-items: center; background: var(--sur); border: 1px solid var(--brd); border-left: 4px solid var(--vixc, var(--acc)); border-radius: 4px; padding: 1.4rem 1.6rem; margin: 1.5rem 0 .5rem; }
+.vixhero .vl { font-family: 'Space Mono', monospace; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--mut); }
+.vixhero .vv { font-family: 'Space Mono', monospace; font-size: 4.2rem; font-weight: 700; line-height: 1; margin: .35rem 0 .3rem; color: var(--vixc, var(--txt)); }
+.vixhero .vd { font-family: 'Space Mono', monospace; font-size: .85rem; font-weight: 700; }
+.vixhero .vlev { font-family: 'Space Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--vixc, var(--txt)); margin-bottom: .3rem; }
+.vixhero .vtxt { font-size: .85rem; line-height: 1.55; opacity: .85; }
+.vbar { position: relative; display: grid; grid-template-columns: 15fr 5fr 10fr 10fr 10fr; height: 8px; border-radius: 4px; overflow: hidden; margin: 1rem 0 .3rem; }
+.vbar span:nth-child(1) { background: #00e5a0; } .vbar span:nth-child(2) { background: #8fd16a; } .vbar span:nth-child(3) { background: #ffd23f; }
+.vbar span:nth-child(4) { background: #ff8a3d; } .vbar span:nth-child(5) { background: #ff4d6d; }
+.vmark { position: absolute; top: -5px; width: 3px; height: 18px; background: var(--txt); border-radius: 2px; box-shadow: 0 0 0 2px var(--bg); }
+.vwrap { position: relative; }
+.vscale { display: grid; grid-template-columns: 15fr 5fr 10fr 10fr 10fr; font-family: 'Space Mono', monospace; font-size: .55rem; color: var(--mut); }
+.vscale span { border-left: 1px solid var(--brd); padding-left: .25rem; }
+.vmeta { font-size: .72rem; color: var(--mut); margin-top: .6rem; }
+@media (max-width: 700px) { .vixhero { grid-template-columns: 1fr; padding: 1.1rem; } .vixhero .vv { font-size: 3.4rem; } .vscale { font-size: .48rem; } }
 /* SEURANTA */
 .wsum { background: var(--sur); border: 1px solid var(--brd); border-left: 3px solid var(--acc); border-radius: 4px; padding: 1rem 1.2rem; font-size: .85rem; line-height: 1.6; margin-bottom: 1.2rem; }
 .wnote { font-size: .7rem; color: var(--mut); margin-top: .5rem; }
@@ -148,6 +164,23 @@ nav { overflow-x: auto; }
 </nav>
 <main>
 <div id="p-main" class="panel on">
+<div class="vixhero" id="vixhero">
+  <div>
+    <div class="vl">VIX – pelkoindeksi tänään <button class="info-btn" onclick="showInfo('vix')">?</button></div>
+    <div class="vv" id="vh-val">–</div>
+    <div class="vd chg" id="vh-chg"></div>
+  </div>
+  <div>
+    <div class="vlev" id="vh-lev"></div>
+    <div class="vtxt" id="vh-txt"></div>
+    <div class="vwrap">
+      <div class="vbar"><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="vmark" id="vh-mark"></div>
+    </div>
+    <div class="vscale"><span>0 rauhallinen</span><span>15</span><span>20 kohonnut</span><span>30 korkea</span><span>40+ paniikki</span></div>
+    <div class="vmeta" id="vh-meta"></div>
+  </div>
+</div>
 <h2>Pörssit</h2>
 <div class="cards">
   <div class="card">
@@ -443,9 +476,38 @@ function renderCards() {
     const p = document.getElementById('p-' + k); if (p) p.textContent = 'Viimeisin: ' + m.period + (m.flash ? ' (ennakko)' : '');
   }
   renderWatch();
+  renderVix();
   const upd = document.getElementById('upd');
   if (upd) upd.textContent = 'Data päivitetty ' + new Date(D.updated).toLocaleString('fi-FI', {
     timeZone: 'Europe/Helsinki', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// VIX-nosto: päivän luku isolla, taso sanallisesti ja asteikolla
+const VIX_LEVELS = [
+  [15, 'Rauhallinen markkina', '#00e5a0', 'Sijoittajat odottavat pieniä kurssiheilahteluja. Tyypillistä nousumarkkinalle.'],
+  [20, 'Normaali taso', '#8fd16a', 'Epävarmuus on pitkän aikavälin keskiarvon tuntumassa (noin 19–20).'],
+  [30, 'Kohonnut pelko', '#ffd23f', 'Optioiden hinnoissa näkyy tavallista suurempi epävarmuus. Kurssit heiluvat selvästi normaalia enemmän.'],
+  [40, 'Korkea pelko', '#ff8a3d', 'Markkinoilla on stressiä. Näin korkeita lukuja nähdään yleensä jyrkkien laskujen aikana.'],
+  [Infinity, 'Paniikki', '#ff4d6d', 'Poikkeuksellinen tilanne, kuten koronakevät 2020 (yli 80) tai finanssikriisi 2008.'],
+];
+function renderVix() {
+  const c = D && D.cards.vix; if (!c) return;
+  const v = c.value, [, lev, col, txt] = VIX_LEVELS.find(l => v < l[0]);
+  const box = document.getElementById('vixhero'); box.style.setProperty('--vixc', col);
+  document.getElementById('vh-val').textContent = fmt(v, 2);
+  const ch = document.getElementById('vh-chg');
+  setChg(ch, c.dayPct, 2, ' % tänään');
+  if (c.dayPct != null) ch.className = 'vd chg ' + (c.dayPct >= 0 ? 'dn' : 'up');   // VIXin nousu = pelko kasvaa
+  document.getElementById('vh-lev').textContent = lev;
+  document.getElementById('vh-txt').textContent = txt;
+  document.getElementById('vh-mark').style.left = 'calc(' + Math.min(v, 49.5) / 50 * 100 + '% - 1px)';
+  const sr = D.daily.vix;
+  if (sr && sr.v.length) {
+    const vals = sr.v.filter(x => x != null), mx = Math.max(...vals), mn = Math.min(...vals), avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const dmax = sr.d[sr.v.indexOf(mx)];
+    document.getElementById('vh-meta').textContent = 'Viimeisen vuoden vaihteluväli ' + fmt(mn, 1) + '–' + fmt(mx, 1)
+      + ' (huippu ' + fiDate(dmax) + '), keskiarvo ' + fmt(avg, 1) + '. Tilanne ' + fiDate(c.date) + '.';
+  }
 }
 
 function sparkSvg(arr) {
