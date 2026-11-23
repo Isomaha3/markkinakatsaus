@@ -57,6 +57,8 @@ h2 { font-family: 'Space Mono', monospace; font-size: .7rem; letter-spacing: .15
 .chartbox { background: var(--sur); border: 1px solid var(--brd); border-radius: 4px; padding: 1.2rem; }
 .chartbox h3 { font-family: 'Space Mono', monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--txt); margin-bottom: .2rem; }
 .chartbox .sub { font-size: .68rem; color: var(--mut); margin-bottom: 1rem; }
+.expl { font-size: .78rem; line-height: 1.55; color: var(--txt); opacity: .85; margin-top: .9rem; padding-top: .8rem; border-top: 1px solid var(--brd); }
+.expl b { color: var(--acc); font-weight: 700; }
 .chartbox canvas { display: block; width: 100% !important; max-height: 140px; }
 .full { grid-column: 1 / -1; }
 .chdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: .2rem; }
@@ -228,11 +230,11 @@ nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
 <h2>Makrotalous</h2>
 <div class="cards">
   <div class="card blue">
-    <div class="lbl">USA teollisuus <button class="info-btn" onclick="showInfo('uspmi')">?</button></div>
-    <div class="sym">Philly Fed / FRED</div>
-    <div class="val" id="v-philly">–</div>
-    <div class="chg" id="d-philly"></div>
-    <div class="dsc">Yli 0 = kasvu · <span id="p-philly"></span></div>
+    <div class="lbl">USA ostopäällikköindeksi <button class="info-btn" onclick="showInfo('uspmi')">?</button></div>
+    <div class="sym">ISM Manufacturing PMI</div>
+    <div class="val" id="v-ism">–</div>
+    <div class="chg" id="d-ism"></div>
+    <div class="dsc">Yli 50 = teollisuus kasvaa · <span id="p-ism"></span></div>
   </div>
   <div class="card blue">
     <div class="lbl">Globaali suhdanne <button class="info-btn" onclick="showInfo('gpmi')">?</button></div>
@@ -246,9 +248,10 @@ nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
 <h2>Historialliset kuvaajat – Suhdanne</h2>
 <div class="charts">
   <div class="chartbox">
-    <div class="chdr"><h3>USA teollisuus (Philly Fed) <button class="info-btn" onclick="showInfo('uspmi')">?</button></h3><div class="rngs" id="rb-uspmi"></div></div>
-    <div class="sub" id="sub-uspmi">12 kk · diffuusioindeksi</div>
+    <div class="chdr"><h3>USA ostopäällikköindeksi (ISM PMI) <button class="info-btn" onclick="showInfo('uspmi')">?</button></h3><div class="rngs" id="rb-uspmi"></div></div>
+    <div class="sub" id="sub-uspmi">12 kk · 50 = raja</div>
     <canvas id="ch-uspmi" height="120"></canvas>
+    <p class="expl"><b>Mitä tämä mittaa?</b> Ostopäällikköindeksi (PMI) perustuu kuukausittaiseen kyselyyn noin 400 yhdysvaltalaisen teollisuusyrityksen ostopäälliköille. Heiltä kysytään, ovatko uudet tilaukset, tuotanto, työllisyys, toimitusajat ja varastot kasvaneet vai vähentyneet edellisestä kuusta.<br><br><b>Miten tulkitaan?</b> Yli 50 tarkoittaa, että teollisuus kasvaa, ja alle 50, että se supistuu. Mitä kauempana luku on 50:stä, sitä voimakkaampi muutos on. Suunta kertoo yhtä paljon kuin taso. Indeksiä seurataan tarkasti, koska ostopäälliköt tekevät hankinnat ennen tuotantoa: PMI kääntyy usein ennen BKT:tä ja yritysten tuloksia ja vaikuttaa siksi osake- ja korkomarkkinoihin heti julkaisupäivänä (kuun ensimmäinen arkipäivä).</p>
   </div>
   <div class="chartbox">
     <div class="chdr"><h3>OECD CLI, G20 <button class="info-btn" onclick="showInfo('gpmi')">?</button></h3><div class="rngs" id="rb-gpmi"></div></div>
@@ -305,7 +308,7 @@ nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
     <canvas id="ch-h-copper" height="120"></canvas>
   </div>
   <div class="chartbox">
-    <div class="chdr"><h3>USA teollisuus (Philly Fed) – 10v <button class="info-btn" onclick="showInfo('uspmi')">?</button></h3><div class="rngs" id="rb-h-uspmi"></div></div>
+    <div class="chdr"><h3>USA ostopäällikköindeksi (ISM PMI) – 10v <button class="info-btn" onclick="showInfo('uspmi')">?</button></h3><div class="rngs" id="rb-h-uspmi"></div></div>
     <div class="sub" id="sub-h-uspmi">10 vuotta</div>
     <canvas id="ch-h-uspmi" height="120"></canvas>
   </div>
@@ -360,7 +363,7 @@ function renderCards() {
     const p = document.getElementById('p-wci');
     if (p) p.textContent = 'USD / 40ft · ' + new Date(D.wci.date).toLocaleDateString('fi-FI');
   }
-  for (const [k, dec] of [['philly', 1], ['cli', 2]]) {
+  for (const [k, dec] of [['ism', 1], ['cli', 2]]) {
     const m = D.macro[k]; if (!m) continue;
     document.getElementById('v-' + k).textContent = fmt(m.latest, dec);
     setChg(document.getElementById('d-' + k), m.latest - m.prev, dec, ' / kk');
@@ -426,7 +429,7 @@ function sliceN(key, days) {
     const w = D.wci || { labels: [], values: [] };
     return { data: w.values.slice(-weeks), labels: w.labels.slice(-weeks) };
   }
-  if (key === 'philly' || key === 'cli') {   // kuukausidata
+  if (key === 'ism' || key === 'cli') {   // kuukausidata
     const m = D.macro[key] || { dates: [], values: [] };
     const n = Math.round(days / 30) + 1;
     return { data: m.values.slice(-n), labels: m.dates.slice(-n) };
@@ -444,7 +447,7 @@ const DEFS = {
   'ch-vix':   n => { const s=sliceN('vix',n);  return [s.labels, [line('VIX',     s.data,'#ff4d6d',true)]]; },
   'ch-gold':   n => { const s=sliceN('gold',n);   return [s.labels, [line('Kulta',   s.data,'#ffd700',true)]]; },
   'ch-copper': n => { const s=sliceN('copper',n); return [s.labels, [line('Kupari',  s.data,'#b87333',true)]]; },
-  'ch-uspmi':  n => { const s=sliceN('philly',n); return [s.labels, [line('Philly Fed', s.data,'#4d8cff',true)]]; },
+  'ch-uspmi':  n => { const s=sliceN('ism',n);    return [s.labels, [line('ISM PMI', s.data,'#4d8cff',true)]]; },
   'ch-gpmi':   n => { const s=sliceN('cli',n);    return [s.labels, [line('OECD CLI G20',s.data,'#a259ff',true)]]; },
   'ch-wci':    n => { const s=sliceN('wci',n);    return [s.labels, [line('WCI',s.data,'#4d8cff',true)]]; },
 };
@@ -557,10 +560,10 @@ const INFO = {
   },
   uspmi: {
     tag: 'Makroindikaattori · USA',
-    name: 'Philadelphia Fed Manufacturing Index',
-    fi: 'Yhdysvaltain teollisuuden suhdannekysely (Philly Fed)',
-    desc: 'Philadelphian keskuspankin kuukausittainen kysely alueen teollisuusyrityksille. Luku on diffuusioindeksi: se kertoo, kuinka moni yritys raportoi toiminnan kasvaneen miinus supistuneen. Yli 0 tarkoittaa kasvua, alle 0 supistumista. Kysely julkaistaan kuun puolivälissä, ennen ISM-ostopäällikköindeksiä, ja se ennakoi usein sen suuntaa. ISM PMI ei ole enää saatavilla ilmaisena datana, siksi sivulla käytetään tätä.',
-    meta: ['Raja: 0 = kasvu/supistuminen', 'Julkaisija: Federal Reserve Bank of Philadelphia', 'Lähde: FRED (GACDFSA066MSFRBPHI)', 'Julkaisu: Kuukausittain']
+    name: 'ISM Manufacturing PMI',
+    fi: 'Yhdysvaltain teollisuuden ostopäällikköindeksi',
+    desc: 'Institute for Supply Managementin (ISM) kuukausittainen kysely noin 400 teollisuusyrityksen ostopäälliköille. Indeksi yhdistää viisi osa-aluetta: uudet tilaukset, tuotanto, työllisyys, toimittajien toimitusajat ja varastot. Yli 50 = teollisuus kasvaa, alle 50 = supistuu. Koska hankinnat tehdään ennen tuotantoa, PMI on yksi tärkeimmistä ennakoivista suhdannemittareista ja liikuttaa markkinoita julkaisupäivänä. Esimerkiksi huhtikuussa 2020 koronan aikana indeksi putosi 41,5:een.',
+    meta: ['Raja: 50 = kasvu/supistuminen', 'Julkaisija: ISM', 'Lähde: ISM:n tiedotteet (PR Newswire)', 'Julkaisu: Kuun 1. arkipäivä']
   },
   gpmi: {
     tag: 'Makroindikaattori · Globaali',
@@ -687,7 +690,7 @@ function buildHistCharts() {
     { key:'tnx',   id:'ch-h-tnx',   rb:'rb-h-tnx',   sub:'sub-h-tnx',   base:'%',      color:'#00e5a0' },
     { key:'vix',    id:'ch-h-vix',    rb:'rb-h-vix',    sub:'sub-h-vix',    base:'',        color:'#ff4d6d' },
     { key:'copper', id:'ch-h-copper', rb:'rb-h-copper', sub:'sub-h-copper', base:'USD/lb', color:'#b87333' },
-    { key:'philly', id:'ch-h-uspmi',  rb:'rb-h-uspmi',  sub:'sub-h-uspmi',  base:'diffuusioindeksi',       color:'#4d8cff' },
+    { key:'ism',    id:'ch-h-uspmi',  rb:'rb-h-uspmi',  sub:'sub-h-uspmi',  base:'50 = raja',       color:'#4d8cff' },
     { key:'cli',    id:'ch-h-gpmi',   rb:'rb-h-gpmi',   sub:'sub-h-gpmi',   base:'100 = trendi',       color:'#a259ff' },
   ];
   defs.forEach(({ key, id, rb, sub, base, color }) => {
@@ -709,7 +712,7 @@ buildRangeBtns('ch-tnx',    'rb-tnx',    'sub-tnx',    '%');
 buildRangeBtns('ch-vix',    'rb-vix',    'sub-vix',    '');
 buildRangeBtns('ch-gold',   'rb-gold',   'sub-gold',   'USD/oz');
 buildRangeBtns('ch-copper', 'rb-copper', 'sub-copper', 'USD/lb');
-buildRangeBtns('ch-uspmi',  'rb-uspmi',  'sub-uspmi',  '');
+buildRangeBtns('ch-uspmi',  'rb-uspmi',  'sub-uspmi',  '50 = raja');
 buildRangeBtns('ch-gpmi',   'rb-gpmi',   'sub-gpmi',   '');
 buildRangeBtns('ch-wci',    'rb-wci',    'sub-wci',    'USD/40ft');
 </script>

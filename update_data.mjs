@@ -4,7 +4,7 @@
 //
 // Lähteet:
 //   Yahoo Finance  – pörssit, hyödykkeet, VIX, US 10Y (viikko- ja kuukausidata)
-//   FRED           – Philadelphia Fedin teollisuusindeksi (vaatii FRED_API_KEY-ympäristömuuttujan)
+//   ISM / PR Newswire – USA:n teollisuuden ostopäällikköindeksi (historia ism_history.json:ssa)
 //   OECD           – G20:n ennakoiva suhdanneindikaattori (CLI)
 //   Drewry         – World Container Index (viikoittain, historia tallennetaan wci_history.json:iin)
 //
@@ -142,25 +142,45 @@ function monthlySeries(obs, label) {
   };
 }
 
-// FRED: Philadelphia Fed Manufacturing Business Outlook (diffuusioindeksi, 0 = raja)
+// ISM Manufacturing PMI (USA:n teollisuuden ostopäällikköindeksi, 50 = raja).
+// ISM:n omat raportit vaativat kirjautumisen, mutta pääluku julkaistaan tiedotteen otsikossa
+// PR Newswiressa, esim. "Manufacturing PMI® at 55.5%; October 2026 ISM® Manufacturing PMI® Report".
+// Historia on tallessa ism_history.json:ssa, joten joka ajolla riittää lukea uusimmat tiedotteet.
+const MONTH_EN = { January: 1, February: 2, March: 3, April: 4, May: 5, June: 6, July: 7,
+  August: 8, September: 9, October: 10, November: 11, December: 12 };
+let ismHist = [];
+try { ismHist = JSON.parse(fs.readFileSync('ism_history.json', 'utf8')); } catch { /* tyhjä */ }
 try {
-  const key = process.env.FRED_API_KEY;
-  if (!key) throw new Error('FRED_API_KEY puuttuu');
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=GACDFSA066MSFRBPHI&api_key=${key}&file_type=json&sort_order=desc&limit=${MONTHS + 1}`;
-  const d = await fetchJson(url);
-  const obs = d.observations
-    .filter(o => o.value !== '.')
-    .reverse()
-    .map(o => ({ month: o.date.slice(0, 7), value: round(Number(o.value), 1) }));
-  const s = monthlySeries(obs, 'Philly Fed');
-  out.macro.philly = s.card;
-  out.hist.philly = s.hist;
-  console.log(`OK  philly  ${s.card.latest} (${s.card.period})`);
+  const r = await fetch('https://www.prnewswire.com/news/institute-for-supply-management/?page=1&pagesize=50',
+    { headers: UA, signal: AbortSignal.timeout(30000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const html = await r.text();
+  let found = 0, added = 0;
+  for (const [, title] of html.matchAll(/title="([^"]*)"/g)) {
+    if (!/Manufacturing/.test(title) || /Non-Manufacturing|Services|Hospital|Semiannual|Forecast/i.test(title)) continue;
+    const v = title.match(/PMI®? (?:at|registers|registered) ([\d.]+)%/);
+    const m = title.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December) (\d{4})\b/);
+    if (!v || !m) continue;
+    const value = Number(v[1]);
+    if (value < 25 || value > 75) continue; // epäuskottava
+    found++;
+    const month = `${m[2]}-${String(MONTH_EN[m[1]]).padStart(2, '0')}`;
+    const existing = ismHist.find(p => p.month === month);
+    if (!existing) { ismHist.push({ month, value }); added++; }
+    else if (existing.value !== value) existing.value = value; // mahdollinen korjaus
+  }
+  if (!found) throw new Error('PMI-tiedotteita ei löytynyt sivulta');
+  ismHist.sort((a, b) => a.month.localeCompare(b.month));
+  fs.writeFileSync('ism_history.json', JSON.stringify(ismHist, null, 1) + '\n');
+  console.log(`OK  ism      ${ismHist.at(-1).value} (${ismHist.at(-1).month}, uusia ${added})`);
 } catch (e) {
-  failed.push('philly');
-  console.log(`VIRHE Philly Fed: ${e.message} – käytetään edellistä dataa`);
-  if (old.macro?.philly) out.macro.philly = old.macro.philly;
-  if (old.hist?.philly) out.hist.philly = old.hist.philly;
+  failed.push('ism');
+  console.log(`VIRHE ISM PMI: ${e.message} – käytetään tallennettua historiaa`);
+}
+if (ismHist.length >= 13) {
+  const s = monthlySeries(ismHist, 'ISM PMI');
+  out.macro.ism = s.card;
+  out.hist.ism = s.hist;
 }
 
 // OECD: G20 Composite Leading Indicator (100 = pitkän aikavälin trendi)
