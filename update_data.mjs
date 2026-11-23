@@ -129,6 +129,51 @@ for (const [key, sym] of Object.entries(SYMBOLS)) {
   }
 }
 
+// ── 10 v valtionlainojen korot: Saksa, Suomi, Ranska (+ USA vertailuun) ──
+// EKP: lähentymiskriteerin 10 v korko, kuukausikeskiarvo (IRS-tietokanta) – sama mittari kaikille maille.
+// Saksan keskuspankki: Saksan 10 v korko päivittäin (kortin "tänään"-luku).
+out.yields = {};
+try {
+  const r = await fetch(`https://data-api.ecb.europa.eu/service/data/IRS/M.DE+FI+FR.L.L40.CI.0000.EUR.N.Z?startPeriod=${monthGrid[0]}&format=csvdata`,
+    { headers: UA, signal: AbortSignal.timeout(60000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const [head, ...rows] = (await r.text()).trim().split(/\r?\n/).map(l => l.split(','));
+  const iA = head.indexOf('REF_AREA'), iT = head.indexOf('TIME_PERIOD'), iV = head.indexOf('OBS_VALUE');
+  for (const c of ['DE', 'FI', 'FR']) {
+    const obs = rows.filter(x => x[iA] === c && x[iV] !== '').map(x => ({ d: `${x[iT]}-01`, v: round(Number(x[iV]), 2) }))
+      .sort((a, b) => a.d.localeCompare(b.d));
+    if (obs.length < 2) throw new Error(`${c}: liian vähän dataa`);
+    out.yields[c.toLowerCase()] = { d: obs.map(o => o.d), v: obs.map(o => o.v) };
+  }
+  console.log(`OK  korot   DE ${out.yields.de.v.at(-1)}, FI ${out.yields.fi.v.at(-1)}, FR ${out.yields.fr.v.at(-1)} (${out.yields.de.d.at(-1).slice(0, 7)})`);
+} catch (e) {
+  failed.push('korot');
+  console.log(`VIRHE EKP korot: ${e.message} – käytetään edellistä dataa`);
+  for (const c of ['de', 'fi', 'fr']) if (old.yields?.[c]) out.yields[c] = old.yields[c];
+}
+// USA:n kuukausikeskiarvo ^TNX-viikkodatasta, jotta vertailukuvaaja on samalla mittarilla (kk-keskiarvo)
+if (out.hist.tnx?.d) {
+  const byM = {};
+  out.hist.tnx.d.forEach((d, i) => { if (out.hist.tnx.v[i] != null) (byM[d.slice(0, 7)] ??= []).push(out.hist.tnx.v[i]); });
+  const months = Object.keys(byM).sort();
+  out.yields.us = { d: months.map(m => `${m}-01`), v: months.map(m => round(byM[m].reduce((a, b) => a + b, 0) / byM[m].length, 2)) };
+}
+try {
+  const r = await fetch('https://api.statistiken.bundesbank.de/rest/data/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?lastNObservations=40&format=csv',
+    { headers: { ...UA, Accept: 'text/csv' }, signal: AbortSignal.timeout(30000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const pts = (await r.text()).split(/\r?\n/).map(l => l.split(';'))
+    .filter(c => /^\d{4}-\d{2}-\d{2}$/.test(c[0]) && /^-?\d+,\d+$/.test(c[1]))
+    .map(c => ({ d: c[0], v: Number(c[1].replace(',', '.')) }));
+  if (pts.length < 2) throw new Error('liian vähän dataa');
+  out.cards.de10 = { value: pts.at(-1).v, prev: pts.at(-2).v, date: pts.at(-1).d };
+  console.log(`OK  de10    ${pts.at(-1).v} (${pts.at(-1).d})`);
+} catch (e) {
+  failed.push('de10');
+  console.log(`VIRHE Bundesbank: ${e.message} – käytetään edellistä dataa`);
+  if (old.cards?.de10) out.cards.de10 = old.cards.de10;
+}
+
 // ── Kuukausisarjat makrolle ─────────────────────────────────
 function monthlySeries(obs, label) {
   // obs: [{month:'YYYY-MM', value}], vanhimmasta uusimpaan
@@ -454,7 +499,7 @@ if (watch.length) {
 }
 
 // ── Tallennus ───────────────────────────────────────────────
-const total = Object.keys(SYMBOLS).length + 4;
+const total = Object.keys(SYMBOLS).length + 6;
 if (failed.length >= total) {
   console.error('Kaikki lähteet epäonnistuivat – data.js:ää ei muutettu.');
   process.exit(1);
