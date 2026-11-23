@@ -768,7 +768,10 @@ function setupChart(def) {
   const start = def.ranges.find(r => r.on) || def.ranges.at(-1);
   const setSub = (lab, days) => {
     if (!sub) return;
-    const base = (def.base || '').replace('päivän päätöskurssi', !def.hist && days > 400 ? 'viikon päätöskurssi' : 'päivän päätöskurssi');
+    // Yli 400 päivän näkymissä markkinakuvaajat käyttävät viikkodataa (build) – kerrotaan se kaikille kuvaajille
+    const weekly = !def.hist && !def.monthly && days > 400;
+    let base = def.base || '';
+    if (weekly) base = base.includes('päivän päätöskurssi') ? base.replace('päivän päätöskurssi', 'viikon päätöskurssi') : (base ? base + ' · ' : '') + 'viikon päätöskurssi';
     sub.textContent = lab + (base ? ' · ' + base : '');
   };
   const [l, ds] = build(def, start.days);
