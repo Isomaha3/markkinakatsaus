@@ -28,6 +28,7 @@ const SYMBOLS = {
   copper: 'HG=F',
   vix: '^VIX',
   tnx: '^TNX',
+  btc: 'BTC-USD',
 };
 
 const round = (x, d = 2) => (x == null || !Number.isFinite(x) ? null : Number(x.toFixed(d)));
@@ -98,11 +99,15 @@ for (const [key, sym] of Object.entries(SYMBOLS)) {
     const latest = dy.price ?? daily.v.at(-1);
     daily.v[daily.v.length - 1] = round(latest, dec); // viimeisin piste = sama luku kuin kortissa
     out.daily[key] = daily;
+    // Viikkomuutos päivämäärän mukaan (viimeisin päätöskurssi vähintään 7 pv sitten), jotta se on
+    // oikein myös Bitcoinille, jolla kauppaa käydään viikonloppuisin.
+    const wkAgo = new Date(daily.d.at(-1) + 'T12:00:00Z'); wkAgo.setUTCDate(wkAgo.getUTCDate() - 7);
+    const wkIdx = daily.d.findLastIndex(d => d <= iso(wkAgo));
     out.cards[key] = {
       value: round(latest, dec),
       date: daily.d.at(-1),
       dayPct: pctCh(latest, daily.v.at(-2)),
-      weekPct: pctCh(latest, daily.v.at(-6)),
+      weekPct: wkIdx >= 0 ? pctCh(latest, daily.v[wkIdx]) : null,
     };
 
     // 10 v viikkodata. Yahoo merkitsee viikon alkupäivälle, mutta arvo on viikon viimeinen

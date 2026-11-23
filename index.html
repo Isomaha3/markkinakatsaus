@@ -88,6 +88,20 @@ nav a.on { color: var(--acc); border-bottom-color: var(--acc); }
 .vscale span { border-left: 1px solid var(--brd); padding-left: .25rem; }
 .vmeta { font-size: .72rem; color: var(--mut); margin-top: .6rem; }
 @media (max-width: 700px) { .vixhero { grid-template-columns: 1fr; padding: 1.1rem; } .vixhero .vv { font-size: 3.4rem; } .vscale { font-size: .48rem; } }
+/* PÄIVÄN NOUSIJAT */
+.movers { background: var(--sur); border: 1px solid var(--brd); border-radius: 4px; padding: 1.2rem 1.4rem; margin: .5rem 0 0; }
+.movers .mh { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; margin-bottom: .9rem; }
+.movers .mh .vl { font-family: 'Space Mono', monospace; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--mut); }
+.mtop { display: flex; align-items: baseline; flex-wrap: wrap; gap: .3rem 1rem; padding-bottom: .9rem; margin-bottom: .7rem; border-bottom: 1px solid var(--brd); }
+.mtop .mn { font-family: 'Space Mono', monospace; font-size: 1.5rem; font-weight: 700; }
+.mtop .mp { font-family: 'Space Mono', monospace; font-size: 2.2rem; font-weight: 700; line-height: 1; }
+.mtop .mv { font-family: 'Space Mono', monospace; font-size: .8rem; color: var(--mut); }
+.mrow { display: grid; grid-template-columns: 1.4rem 9rem 1fr 5.5rem; align-items: center; gap: .6rem; padding: .28rem 0; font-family: 'Space Mono', monospace; font-size: .74rem; }
+.mrow .mr { color: var(--mut); }
+.mrow .mb { height: 6px; background: var(--bg); border-radius: 3px; position: relative; overflow: hidden; }
+.mrow .mb i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.mrow .mpc { text-align: right; font-weight: 700; }
+@media (max-width: 700px) { .mrow { grid-template-columns: 1.2rem 6.5rem 1fr 4.6rem; font-size: .68rem; } .mtop .mp { font-size: 1.8rem; } .mtop .mn { font-size: 1.2rem; } }
 /* SEURANTA */
 .wsum { background: var(--sur); border: 1px solid var(--brd); border-left: 3px solid var(--acc); border-radius: 4px; padding: 1rem 1.2rem; font-size: .85rem; line-height: 1.6; margin-bottom: 1.2rem; }
 .wnote { font-size: .7rem; color: var(--mut); margin-top: .5rem; }
@@ -181,6 +195,11 @@ nav { overflow-x: auto; }
     <div class="vmeta" id="vh-meta"></div>
   </div>
 </div>
+<div class="movers">
+  <div class="mh"><div class="vl" id="mv-title">Päivän nousijat – indeksit ja raaka-aineet</div><div class="rngs" id="mv-rng"></div></div>
+  <div class="mtop" id="mv-top"></div>
+  <div id="mv-list"></div>
+</div>
 <h2>Pörssit</h2>
 <div class="cards">
   <div class="card">
@@ -256,6 +275,22 @@ nav { overflow-x: auto; }
     <div class="lbl">VIX – Pelkoindeksi <button class="info-btn" onclick="showInfo('vix')">?</button></div><div class="sym">^VIX</div>
     <div class="val" id="v-vix">–</div><div class="chg" id="d-vix"></div>
     <div class="dsc">S&amp;P 500 volatiliteetti</div>
+  </div>
+</div>
+
+<h2>Kryptovaluutat</h2>
+<div class="cards">
+  <div class="card orange">
+    <div class="lbl">Bitcoin <button class="info-btn" onclick="showInfo('btc')">?</button></div><div class="sym">BTC-USD</div>
+    <div class="val" id="v-btc">–</div><div class="chg" id="d-btc"></div>
+    <div class="dsc">USD · kaupankäynti 24/7</div>
+  </div>
+</div>
+<div class="charts">
+  <div class="chartbox full">
+    <div class="chdr"><h3>Bitcoin <button class="info-btn" onclick="showInfo('btc')">?</button></h3><div class="rngs" id="rb-btc"></div></div>
+    <div class="sub" id="sub-btc">12 kk · USD</div>
+    <canvas id="ch-btc" height="120"></canvas>
   </div>
 </div>
 
@@ -410,6 +445,11 @@ nav { overflow-x: auto; }
     <canvas id="ch-h-copper" height="120"></canvas>
   </div>
   <div class="chartbox">
+    <div class="chdr"><h3>Bitcoin – 10v <button class="info-btn" onclick="showInfo('btc')">?</button></h3><div class="rngs" id="rb-h-btc"></div></div>
+    <div class="sub" id="sub-h-btc">10 vuotta · USD</div>
+    <canvas id="ch-h-btc" height="120"></canvas>
+  </div>
+  <div class="chartbox">
     <div class="chdr"><h3>USA ostopäällikköindeksi (ISM PMI) – 10v <button class="info-btn" onclick="showInfo('uspmi')">?</button></h3><div class="rngs" id="rb-h-uspmi"></div></div>
     <div class="sub" id="sub-h-uspmi">10 vuotta</div>
     <canvas id="ch-h-uspmi" height="120"></canvas>
@@ -450,7 +490,7 @@ function setChg(el, chg, dec, suffix) {
 }
 
 // Korttien desimaalit
-const CARD_DEC = { omxh: 0, sp500: 0, stoxx: 2, wti: 2, brent: 2, gold: 0, copper: 3, vix: 2 };
+const CARD_DEC = { omxh: 0, sp500: 0, stoxx: 2, wti: 2, brent: 2, gold: 0, copper: 3, vix: 2, btc: 0 };
 
 function renderCards() {
   if (!D) return;
@@ -477,6 +517,7 @@ function renderCards() {
   }
   renderWatch();
   renderVix();
+  renderMovers('day');
   const upd = document.getElementById('upd');
   if (upd) upd.textContent = 'Data päivitetty ' + new Date(D.updated).toLocaleString('fi-FI', {
     timeZone: 'Europe/Helsinki', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -508,6 +549,39 @@ function renderVix() {
     document.getElementById('vh-meta').textContent = 'Viimeisen vuoden vaihteluväli ' + fmt(mn, 1) + '–' + fmt(mx, 1)
       + ' (huippu ' + fiDate(dmax) + '), keskiarvo ' + fmt(avg, 1) + '. Tilanne ' + fiDate(c.date) + '.';
   }
+}
+
+// Päivän nousijat: eniten noussut ylimpänä, muut muutoksen mukaan järjestyksessä
+const MOVERS = [
+  ['omxh', 'OMXH25', 0], ['sp500', 'S&P 500', 0], ['stoxx', 'STOXX 600', 2],
+  ['wti', 'WTI-öljy', 2], ['brent', 'Brent-öljy', 2], ['gold', 'Kulta', 0], ['copper', 'Kupari', 3], ['btc', 'Bitcoin', 0],
+];
+function renderMovers(mode) {
+  if (!D) return;
+  const key = mode === 'week' ? 'weekPct' : 'dayPct';
+  const rows = MOVERS.map(([k, name, dec]) => ({ name, dec, c: D.cards[k] })).filter(r => r.c && r.c[key] != null)
+    .sort((a, b) => b.c[key] - a.c[key]);
+  if (!rows.length) return;
+  document.getElementById('mv-title').textContent = (mode === 'week' ? 'Viikon' : 'Päivän') + ' nousijat – indeksit ja raaka-aineet';
+  const sign = x => (x >= 0 ? '+' : '−') + fmt(Math.abs(x), 2) + ' %';
+  const top = rows[0], tp = top.c[key];
+  document.getElementById('mv-top').innerHTML =
+    '<span class="mn">' + (tp >= 0 ? '▲ ' : '▼ ') + esc(top.name) + '</span>'
+    + '<span class="mp ' + (tp >= 0 ? 'up' : 'dn') + '">' + sign(tp) + '</span>'
+    + '<span class="mv">' + fmt(top.c.value, top.dec) + (tp >= 0 ? ' · eniten noussut' : ' · kaikki laskivat, vähiten laskenut') + '</span>';
+  const mx = Math.max(...rows.map(r => Math.abs(r.c[key]))) || 1;
+  document.getElementById('mv-list').innerHTML = rows.slice(1).map((r, i) => {
+    const p = r.c[key], w = Math.abs(p) / mx * 50;
+    const bar = p >= 0 ? 'left:50%;width:' + w + '%;background:var(--up)' : 'right:50%;width:' + w + '%;background:var(--dn)';
+    return '<div class="mrow"><span class="mr">' + (i + 2) + '.</span><span>' + esc(r.name) + '</span>'
+      + '<span class="mb"><i style="' + bar + '"></i></span><span class="mpc ' + (p >= 0 ? 'up' : 'dn') + '">' + sign(p) + '</span></div>';
+  }).join('');
+  const rb = document.getElementById('mv-rng');
+  if (!rb.children.length) [['day', 'Tänään'], ['week', 'Viikko']].forEach(([m, l]) => {
+    const b = document.createElement('button'); b.className = 'rng'; b.textContent = l; b.dataset.m = m;
+    b.onclick = () => renderMovers(m); rb.appendChild(b);
+  });
+  rb.querySelectorAll('.rng').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
 }
 
 function sparkSvg(arr) {
@@ -672,6 +746,7 @@ const MAIN_CHARTS = [
   { id: 'ch-vix',    unit: '',        dec: 2, base: 'indeksi',  ranges: R_MARKET, series: [S('vix', 'VIX', '#ff4d6d')] },
   { id: 'ch-gold',   unit: 'USD',     dec: 0, base: 'USD/oz',   ranges: R_MARKET, series: [S('gold', 'Kulta', '#ffd700')] },
   { id: 'ch-copper', unit: 'USD',     dec: 3, base: 'USD/lb',   ranges: R_MARKET, series: [S('copper', 'Kupari', '#b87333')] },
+  { id: 'ch-btc',    unit: 'USD',     dec: 0, base: 'USD · päivän päätöskurssi', ranges: R_MARKET, series: [S('btc', 'Bitcoin', '#f7931a')] },
   { id: 'ch-wci',    unit: 'USD',     dec: 0, base: 'USD/40ft · viikoittain', ranges: R_WCI, series: [S('wci', 'WCI', '#4d8cff')] },
   { id: 'ch-uspmi',  unit: '', dec: 1, monthly: true, base: '50 = raja · kuukausittain', ranges: R_MACRO, series: [S('ism', 'ISM PMI', '#4d8cff')] },
   { id: 'ch-gpmi',   unit: '', dec: 2, monthly: true, base: '100 = trendi · kuukausittain', ranges: R_MACRO, series: [S('cli', 'OECD CLI G20', '#a259ff')] },
@@ -679,7 +754,7 @@ const MAIN_CHARTS = [
 ];
 const HIST_CHARTS = [
   ['omxh', 'EUR', 0, '#00e5a0'], ['sp500', 'USD', 0, '#4d8cff'], ['stoxx', 'EUR', 2, '#a259ff'], ['wti', 'USD/bbl', 2, '#ff6b35'],
-  ['gold', 'USD/oz', 0, '#ffd700'], ['tnx', '%', 2, '#00e5a0'], ['vix', '', 2, '#ff4d6d'], ['copper', 'USD/lb', 3, '#b87333'],
+  ['gold', 'USD/oz', 0, '#ffd700'], ['tnx', '%', 2, '#00e5a0'], ['vix', '', 2, '#ff4d6d'], ['copper', 'USD/lb', 3, '#b87333'], ['btc', 'USD', 0, '#f7931a'],
 ].map(([key, base, dec, color]) => ({ id: 'ch-h-' + key, hist: true, unit: base.split('/')[0], dec, base: (base ? base + ' · ' : '') + 'viikon päätöskurssi', ranges: R_HIST, series: [S(key, key.toUpperCase(), color)] }))
  .concat([
   { id: 'ch-h-uspmi', hist: true, monthly: true, unit: '', dec: 1, base: '50 = raja', ranges: R_HIST, series: [S('ism', 'ISM PMI', '#4d8cff')] },
@@ -729,6 +804,13 @@ const INFO = {
     fi: 'Kullan spot-hinta yhdysvaltain dollareissa per troy-unssi',
     desc: 'Kulta on perinteisin turvasatama sijoittajille epävarmoina aikoina. Sen hinta nousee tyypillisesti, kun inflaatio kiihtyy, dollari heikkenee tai geopoliittiset riskit kasvavat. Kultaa ei käytetä merkittävästi teollisuudessa, joten sen hinta heijastaa lähes puhtaasti markkinoiden riskisentimenttiä.',
     meta: ['Valuutta: USD/oz', 'Yksikkö: Troy unssi (31,1g)', 'Pörssi: COMEX', 'Symboli: GC=F']
+  },
+  btc: {
+    tag: 'Kryptovaluutta',
+    name: 'Bitcoin (BTC)',
+    fi: 'Suurin kryptovaluutta, hinta Yhdysvaltain dollareina',
+    desc: 'Bitcoin on markkina-arvoltaan suurin kryptovaluutta. Sen tarjonta on rajattu 21 miljoonaan kolikkoon, minkä vuoksi sitä kutsutaan joskus digitaaliseksi kullaksi. Hinta heiluu selvästi osakkeita enemmän, ja se reagoi herkästi korko-odotuksiin ja riskinottohalukkuuteen. Kauppaa käydään ympäri vuorokauden joka päivä, joten "päivän päätöskurssi" on UTC-vuorokauden viimeinen hinta.',
+    meta: ['Valuutta: USD', 'Kaupankäynti: 24/7', 'Symboli: BTC-USD', 'Tarjonta: max 21 milj.']
   },
   copper: {
     tag: 'Raaka-aine · Teollisuusmetalli',
