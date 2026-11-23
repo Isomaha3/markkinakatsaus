@@ -20,6 +20,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Run tests
+        run: node --test
+
       - name: Run update script
         run: node update_data.mjs
 

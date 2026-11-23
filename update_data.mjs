@@ -13,6 +13,7 @@
 
 import fs from 'node:fs';
 import zlib from 'node:zlib';
+import { usMonthlyAverage } from './yields.mjs';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
 const KK = ['tammi', 'helmi', 'maalis', 'huhti', 'touko', 'kesä', 'heinä', 'elo', 'syys', 'loka', 'marras', 'joulu'];
@@ -151,13 +152,9 @@ try {
   console.log(`VIRHE EKP korot: ${e.message} – käytetään edellistä dataa`);
   for (const c of ['de', 'fi', 'fr']) if (old.yields?.[c]) out.yields[c] = old.yields[c];
 }
-// USA:n kuukausikeskiarvo ^TNX-viikkodatasta, jotta vertailukuvaaja on samalla mittarilla (kk-keskiarvo)
-if (out.hist.tnx?.d) {
-  const byM = {};
-  out.hist.tnx.d.forEach((d, i) => { if (out.hist.tnx.v[i] != null) (byM[d.slice(0, 7)] ??= []).push(out.hist.tnx.v[i]); });
-  const months = Object.keys(byM).sort();
-  out.yields.us = { d: months.map(m => `${m}-01`), v: months.map(m => round(byM[m].reduce((a, b) => a + b, 0) / byM[m].length, 2)) };
-}
+// USA:n kuukausikeskiarvo ^TNX-datasta, jotta vertailukuvaaja on samalla mittarilla kuin EKP:n luvut
+const usMonthly = usMonthlyAverage(out.daily.tnx, out.hist.tnx, new Date().toISOString().slice(0, 7));
+if (usMonthly) out.yields.us = usMonthly;
 try {
   const r = await fetch('https://api.statistiken.bundesbank.de/rest/data/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?lastNObservations=40&format=csv',
     { headers: { ...UA, Accept: 'text/csv' }, signal: AbortSignal.timeout(30000) });
