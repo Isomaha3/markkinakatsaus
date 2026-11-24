@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { usMonthlyAverage } from './yields.mjs';
+import { finishWeekly } from './weekly.mjs';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
 const KK = ['tammi', 'helmi', 'maalis', 'huhti', 'touko', 'kesä', 'heinä', 'elo', 'syys', 'loka', 'marras', 'joulu'];
@@ -114,12 +115,11 @@ for (const [key, sym] of Object.entries(SYMBOLS)) {
     // 10 v viikkodata. Yahoo merkitsee viikon alkupäivälle, mutta arvo on viikon viimeinen
     // päätöskurssi, joten siirretään piste viikon perjantaille (viimeinen piste = tämä päivä).
     const wk = await yahoo(sym, '10y', '1wk');
-    const hist = toSeries(wk.points, dec, p => {
+    const weekly = toSeries(wk.points, dec, p => {
       const f = new Date(p.date); f.setUTCDate(f.getUTCDate() + 4); return iso(f);
     });
-    hist.d[hist.d.length - 1] = daily.d.at(-1);
-    hist.v[hist.v.length - 1] = round(latest, dec);
-    out.hist[key] = hist;
+    // Kesken olevan viikon pisteet (myös tulevalle perjantaille osuva) korvataan tämän päivän luvulla
+    out.hist[key] = finishWeekly(weekly, daily.d.at(-1), round(latest, dec));
     console.log(`OK  ${key.padEnd(7)} ${sym.padEnd(8)} ${latest}`);
   } catch (e) {
     failed.push(key);
