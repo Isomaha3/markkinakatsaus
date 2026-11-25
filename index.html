@@ -554,7 +554,22 @@ function renderCards() {
   const upd = document.getElementById('upd');
   if (upd) upd.textContent = 'Data päivitetty ' + new Date(D.updated).toLocaleString('fi-FI', {
     timeZone: 'Europe/Helsinki', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  // Lähteet, joita viimeisin ajo ei saanut päivitettyä: niiden luvut ovat edelliseltä ajolta
+  if (upd && Array.isArray(D.failed) && D.failed.length) {
+    const nimet = D.failed.map(k => SOURCE_NAMES[k] || k);
+    const w = document.createElement('span');
+    w.className = 'dn';
+    w.textContent = ' · ei päivittynyt: ' + nimet.join(', ');
+    w.title = 'Näiden lähteiden luvut ovat edelliseltä onnistuneelta ajolta.';
+    upd.appendChild(w);
+  }
 }
+
+const SOURCE_NAMES = {
+  omxh: 'OMXH25', sp500: 'S&P 500', stoxx: 'STOXX 600', wti: 'WTI', brent: 'Brent', gold: 'kulta',
+  copper: 'kupari', vix: 'VIX', tnx: 'USA 10 v', btc: 'Bitcoin', korot: 'korot', de10: 'Saksa 10 v',
+  ism: 'ISM PMI', 'spg-pmi': 'S&P Global PMI', cli: 'OECD CLI', wci: 'WCI-rahti',
+};
 
 // VIX-nosto: päivän luku isolla, taso sanallisesti ja asteikolla
 const VIX_LEVELS = [

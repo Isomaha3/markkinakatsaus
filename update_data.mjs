@@ -501,6 +501,8 @@ if (failed.length >= total) {
   console.error('Kaikki lähteet epäonnistuivat – data.js:ää ei muutettu.');
   process.exit(1);
 }
+// Sivu näyttää, mitkä lähteet jäivät viimeisimmällä ajolla vanhan datan varaan
+out.failed = failed;
 fs.writeFileSync('data.js',
   '// Generoitu tiedosto (update_data.mjs) – älä muokkaa käsin.\n' +
   `window.MK_DATA = ${JSON.stringify(out)};\n`);
