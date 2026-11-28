@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { usMonthlyAverage } from './yields.mjs';
 import { finishWeekly } from './weekly.mjs';
+import { parseIsmTitle } from './ism.mjs';
 
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
 const KK = ['tammi', 'helmi', 'maalis', 'huhti', 'touko', 'kesä', 'heinä', 'elo', 'syys', 'loka', 'marras', 'joulu'];
@@ -222,14 +223,10 @@ try {
   }
   let found = 0, added = 0;
   for (const title of titles) {
-    if (!/Manufacturing/.test(title) || /Non-Manufacturing|Services|Hospital|Semiannual|Forecast/i.test(title)) continue;
-    const v = title.match(/PMI®? (?:at|registers|registered) ([\d.]+)%/);
-    const m = title.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December) (\d{4})\b/);
-    if (!v || !m) continue;
-    const value = Number(v[1]);
-    if (value < 25 || value > 75) continue; // epäuskottava
+    const parsed = parseIsmTitle(title);
+    if (!parsed) continue;
+    const { month, value } = parsed;
     found++;
-    const month = `${m[2]}-${String(MONTH_EN[m[1]]).padStart(2, '0')}`;
     const existing = ismHist.find(p => p.month === month);
     if (!existing) { ismHist.push({ month, value }); added++; }
     else if (existing.value !== value) existing.value = value; // mahdollinen korjaus
