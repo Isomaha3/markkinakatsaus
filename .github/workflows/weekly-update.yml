@@ -1,12 +1,21 @@
 name: Data Update
 
 on:
+  # GitHubin ajastukset voivat käynnistyä tunteja myöhässä, joten ajetaan kahdesti arkipäivisin:
+  # 4:00 ja 12:00 UTC = klo 6 ja 14 Suomen talviaikaa (7 ja 15 kesäaikaa).
   schedule:
-    - cron: '0 6 * * 1-5'  # Arkipäivisin klo 6:00 UTC (8:00 / 9:00 Suomen aikaa)
+    - cron: '0 4 * * 1-5'
+    - cron: '0 12 * * 1-5'
   workflow_dispatch:        # Voi myös ajaa manuaalisesti
 
 permissions:
   contents: write
+
+# Vain yksi päivitys kerrallaan: jos edellinen on vielä käynnissä, seuraava odottaa jonossa
+# (ei peruuteta kesken), joten kaksi ajoa ei kirjoita dataa yhtä aikaa.
+concurrency:
+  group: data-update
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -31,5 +40,7 @@ jobs:
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
           git add data.js wci_history.json ism_history.json spg_pmi_history.json
-          git diff --staged --quiet || git commit -m "Automaattinen datapäivitys $(date +'%Y-%m-%d')"
+          git diff --staged --quiet || git commit -m "Automaattinen datapäivitys $(date +'%Y-%m-%d %H:%M')"
+          # Jos mainiin on tullut muutoksia ajon aikana (esim. yhdistetty PR), otetaan ne mukaan ennen pushia
+          git pull --rebase
           git push

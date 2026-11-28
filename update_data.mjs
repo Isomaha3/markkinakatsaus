@@ -83,6 +83,11 @@ const out = {
   wci: null,
 };
 const failed = [];
+// Lähdekohtainen tuoreus: aikaleima päivittyy VAIN kun lähteen haku onnistuu. Jos käytetään vanhaa
+// dataa varalla, edellinen aikaleima säilyy, jolloin sivu voi varoittaa vanhentuneesta luvusta.
+const fresh = { ...(old.fresh || {}) };
+const ok = k => { fresh[k] = now.toISOString(); };
+const notOk = k => { if (!(k in fresh)) fresh[k] = null; };   // ei koskaan onnistunut tiedossa olevasti
 
 // Pisteet → {d, v}; saman päivän useasta pisteestä jää viimeinen
 function toSeries(points, dec, dateOf = p => iso(p.date)) {
@@ -121,8 +126,9 @@ for (const [key, sym] of Object.entries(SYMBOLS)) {
     // Kesken olevan viikon pisteet (myös tulevalle perjantaille osuva) korvataan tämän päivän luvulla
     out.hist[key] = finishWeekly(weekly, daily.d.at(-1), round(latest, dec));
     console.log(`OK  ${key.padEnd(7)} ${sym.padEnd(8)} ${latest}`);
+    ok(key);
   } catch (e) {
-    failed.push(key);
+    failed.push(key); notOk(key);
     console.log(`VIRHE ${key} (${sym}): ${e.message} – käytetään edellistä dataa`);
     if (old.daily?.[key]) out.daily[key] = old.daily[key];
     if (old.cards?.[key]) out.cards[key] = old.cards[key];
@@ -147,8 +153,9 @@ try {
     out.yields[c.toLowerCase()] = { d: obs.map(o => o.d), v: obs.map(o => o.v) };
   }
   console.log(`OK  korot   DE ${out.yields.de.v.at(-1)}, FI ${out.yields.fi.v.at(-1)}, FR ${out.yields.fr.v.at(-1)} (${out.yields.de.d.at(-1).slice(0, 7)})`);
+  ok('korot');
 } catch (e) {
-  failed.push('korot');
+  failed.push('korot'); notOk('korot');
   console.log(`VIRHE EKP korot: ${e.message} – käytetään edellistä dataa`);
   for (const c of ['de', 'fi', 'fr']) if (old.yields?.[c]) out.yields[c] = old.yields[c];
 }
@@ -165,8 +172,9 @@ try {
   if (pts.length < 2) throw new Error('liian vähän dataa');
   out.cards.de10 = { value: pts.at(-1).v, prev: pts.at(-2).v, date: pts.at(-1).d };
   console.log(`OK  de10    ${pts.at(-1).v} (${pts.at(-1).d})`);
+  ok('de10');
 } catch (e) {
-  failed.push('de10');
+  failed.push('de10'); notOk('de10');
   console.log(`VIRHE Bundesbank: ${e.message} – käytetään edellistä dataa`);
   if (old.cards?.de10) out.cards.de10 = old.cards.de10;
 }
@@ -230,8 +238,9 @@ try {
   ismHist.sort((a, b) => a.month.localeCompare(b.month));
   fs.writeFileSync('ism_history.json', JSON.stringify(ismHist, null, 1) + '\n');
   console.log(`OK  ism      ${ismHist.at(-1).value} (${ismHist.at(-1).month}, uusia ${added})`);
+  ok('ism');
 } catch (e) {
-  failed.push('ism');
+  failed.push('ism'); notOk('ism');
   console.log(`VIRHE ISM PMI: ${e.message} – käytetään tallennettua historiaa`);
 }
 if (ismHist.length >= 13) {
@@ -315,8 +324,9 @@ try {
   for (const k of ['ez', 'us']) spgHist[k].sort((a, b) => a.month.localeCompare(b.month));
   fs.writeFileSync('spg_pmi_history.json', JSON.stringify(spgHist, null, 1) + '\n');
   console.log(`OK  spg-pmi  euroalue ${spgHist.ez.at(-1)?.value}, USA ${spgHist.us.at(-1)?.value} (${read} tiedotetta)`);
+  ok('spg');
 } catch (e) {
-  failed.push('spg-pmi');
+  failed.push('spg-pmi'); notOk('spg');
   console.log(`VIRHE S&P Global PMI: ${e.message} – käytetään tallennettua historiaa`);
 }
 for (const [region, key, label] of [['ez', 'pmi_ez', 'Euroalue PMI'], ['us', 'pmi_us', 'USA PMI (S&P)']]) {
@@ -352,8 +362,9 @@ try {
   out.macro.cli = s.card;
   out.hist.cli = s.hist;
   console.log(`OK  cli      ${s.card.latest} (${s.card.period})`);
+  ok('cli');
 } catch (e) {
-  failed.push('cli');
+  failed.push('cli'); notOk('cli');
   console.log(`VIRHE OECD CLI: ${e.message} – käytetään edellistä dataa`);
   if (old.macro?.cli) out.macro.cli = old.macro.cli;
   if (old.hist?.cli) out.hist.cli = old.hist.cli;
@@ -376,8 +387,9 @@ try {
   wciHist.sort((a, b) => a.date.localeCompare(b.date));
   fs.writeFileSync('wci_history.json', JSON.stringify(wciHist, null, 1) + '\n');
   console.log(`OK  wci      ${value} (${date})`);
+  ok('wci');
 } catch (e) {
-  failed.push('wci');
+  failed.push('wci'); notOk('wci');
   console.log(`VIRHE WCI: ${e.message} – käytetään tallennettua historiaa`);
 }
 if (wciHist.length) {
@@ -477,9 +489,11 @@ for (const it of WATCHLIST) {
     w.fromHigh = pct(price, w.high52);
     w.text = analyse(w, bench1m);
     watch.push(w);
+    ok('watch:' + it.sym);
   } catch (e) {
     console.log(`VIRHE seuranta ${it.sym}: ${e.message}`);
     const o = old.watch?.items?.find(x => x.sym === it.sym);
+    notOk('watch:' + it.sym);
     if (o) watch.push(o);
   }
 }
@@ -501,6 +515,7 @@ if (failed.length >= total) {
   console.error('Kaikki lähteet epäonnistuivat – data.js:ää ei muutettu.');
   process.exit(1);
 }
+out.fresh = fresh;
 fs.writeFileSync('data.js',
   '// Generoitu tiedosto (update_data.mjs) – älä muokkaa käsin.\n' +
   `window.MK_DATA = ${JSON.stringify(out)};\n`);
